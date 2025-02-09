@@ -56,7 +56,7 @@ This repository implements a comprehensive vocabulary learning and review system
 
 1. **Install Dependencies:**
    ```bash
-   cd @Web
+   cd web
    npm install
    ```
 2. **Start the Development Server:**
