@@ -10,10 +10,35 @@ async function routes(fastify, options) {
   // 获取练习题
   fastify.get('/quiz/:word', async (request, reply) => {
     try {
-      const quiz = await reviewService.generateQuiz(request.params.word);
+      // 解码 URL 参数
+      const word = decodeURIComponent(request.params.word);
+      
+      // 验证单词格式
+      if (!word || word.trim().length === 0) {
+        reply.code(400).send({
+          success: false,
+          message: 'Invalid word parameter',
+          error: {
+            code: 400,
+            type: 'INVALID_PARAMETER'
+          }
+        });
+        return;
+      }
+
+      const quiz = await reviewService.generateQuiz(word);
       return { success: true, data: quiz };
     } catch (error) {
-      reply.code(404).send({ success: false, message: error.message });
+      // 根据错误类型返回适当的状态码
+      const statusCode = error.message.includes('not found') ? 404 : 500;
+      reply.code(statusCode).send({ 
+        success: false, 
+        message: error.message,
+        error: {
+          code: statusCode,
+          type: statusCode === 404 ? 'NOT_FOUND' : 'INTERNAL_ERROR'
+        }
+      });
     }
   });
 
