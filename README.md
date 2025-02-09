@@ -15,8 +15,8 @@ This repository implements a comprehensive vocabulary learning and review system
   - **`src/db/init.js`**: Initializes the SQLite database with tables for vocabularies, learning records, and progress.
   - **`src/cli.js`**: Command-line tool for importing/exporting vocabulary data from/to JSON files.
   
-**Frontend (@Web)**
-- **`@Web` Directory:**
+**Frontend (web)**
+- **`web` Directory:**
   - **`src/pages/LearningPage.jsx`**: The main page where users study vocabularies via quizzes.
   - **`src/pages/HistoryPage.jsx`**: Displays history and statistics of learning sessions.
   - **`src/stores/useVocabStore.js`**: Zustand store for state management.
