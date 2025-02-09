@@ -192,78 +192,59 @@ class ReviewService {
 
   // 生成练习题
   async generateQuiz(word) {
-    // 首先检查参数
-    if (!word || typeof word !== 'string' || word.trim().length === 0) {
-      throw new Error('Invalid word parameter');
-    }
-
-    // 清理输入
-    const cleanWord = word.trim();
-
-    // 获取目标词汇
     const vocab = await new Promise((resolve, reject) => {
-      db.get('SELECT * FROM vocabularies WHERE word = ? COLLATE NOCASE', [cleanWord], (err, row) => {
+      db.get('SELECT * FROM vocabularies WHERE word = ?', [word], (err, row) => {
         if (err) reject(err);
         else resolve(row);
       });
     });
 
-    // 如果找不到词汇，返回更详细的错误
     if (!vocab) {
-      throw new Error(`Word "${cleanWord}" not found in vocabulary database`);
+      throw new Error('Word not found');
     }
 
-    try {
-      // 获取其他词汇作为干扰项
-      const otherWords = await new Promise((resolve, reject) => {
-        db.all(
-          'SELECT * FROM vocabularies WHERE word != ? ORDER BY RANDOM() LIMIT 3',
-          [cleanWord],
-          (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-          }
-        );
-      });
+    // 获取其他词汇作为干扰项
+    const otherWords = await new Promise((resolve, reject) => {
+      db.all(
+        'SELECT * FROM vocabularies WHERE word != ? ORDER BY RANDOM() LIMIT 3',
+        [word],
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
+    });
 
-      // 如果没有足够的干扰项，抛出错误
-      if (otherWords.length < 3) {
-        throw new Error('Not enough vocabulary items for quiz generation');
-      }
+    const targetDefs = JSON.parse(vocab.definitions);
+    const options = otherWords.map(w => ({
+      word: w.word,
+      definition: JSON.parse(w.definitions)[0].meaning,
+      pos: JSON.parse(w.definitions)[0].pos
+    }));
 
-      const targetDefs = JSON.parse(vocab.definitions);
-      const options = otherWords.map(w => ({
-        word: w.word,
-        definition: JSON.parse(w.definitions)[0]?.meaning || '',
-        pos: JSON.parse(w.definitions)[0]?.pos || ''
-      }));
+    // 添加正确答案
+    options.push({
+      word: vocab.word,
+      definition: targetDefs[0].meaning,
+      pos: targetDefs[0].pos
+    });
 
-      // 添加正确答案
-      options.push({
-        word: vocab.word,
-        definition: targetDefs[0]?.meaning || '',
-        pos: targetDefs[0]?.pos || ''
-      });
+    // 打乱选项顺序
+    const shuffledOptions = options.sort(() => Math.random() - 0.5);
 
-      // 打乱选项顺序
-      const shuffledOptions = options.sort(() => Math.random() - 0.5);
-
-      return {
-        word: vocab.word,
-        phonetic: vocab.phonetic || null,
-        audio: vocab.audio_url || null,
-        definitions: targetDefs || [],
-        examples: JSON.parse(vocab.examples || '[]'),
-        memory_method: vocab.memory_method || '',
-        correct_answer: targetDefs[0]?.meaning || '',
-        options: shuffledOptions.map(opt => ({
-          definition: opt.definition,
-          pos: opt.pos
-        }))
-      };
-    } catch (error) {
-      throw new Error(`Failed to generate quiz: ${error.message}`);
-    }
+    return {
+      word: vocab.word,
+      phonetic: vocab.phonetic || null,
+      audio: vocab.audio_url || null,
+      definitions: targetDefs || [],
+      examples: JSON.parse(vocab.examples || '[]'),
+      memory_method: vocab.memory_method || '',
+      correct_answer: targetDefs[0].meaning,
+      options: shuffledOptions.map(opt => ({
+        definition: opt.definition,
+        pos: opt.pos
+      }))
+    };
   }
 
   // 获取学习历史记录
