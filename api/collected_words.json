@@ -1,0 +1,178 @@
+{
+  "ain’t": {
+    "definitions": [
+      {
+        "meaning": "不是；没有（am not, is not, are not等的缩写形式，常用于口语）",
+        "pos": "v."
+      }
+    ],
+    "mastered": false,
+    "memory_method": "他ain’t 准备好了。(He ain’t ready.)",
+    "pronunciation": {
+      "American": "/eɪnt/",
+      "British": ""
+    },
+    "timestamp": 1739065319782,
+    "word": "ain’t"
+  },
+  "be about to": {
+    "definitions": [
+      {
+        "meaning": "即将；正要",
+        "pos": "phrase"
+      }
+    ],
+    "mastered": false,
+    "memory_method": "火车be about to出发了，我们快上车。(The train is about to depart. Let's get on quickly.)",
+    "pronunciation": {
+      "American": "/bi əˈbaʊt tuː/",
+      "British": ""
+    },
+    "timestamp": 1739065204776,
+    "word": "be about to"
+  },
+  "be into": {
+    "definitions": [
+      {
+        "meaning": "对……感兴趣；喜欢",
+        "pos": "phrase"
+      }
+    ],
+    "mastered": false,
+    "memory_method": "她很be into绘画，一有空就去画画。(She is really into painting and goes to paint whenever she has time.)",
+    "pronunciation": {
+      "American": "/biː ˈɪntuː/",
+      "British": ""
+    },
+    "timestamp": 1739065599906,
+    "word": "be into"
+  },
+  "beat sb to it": {
+    "definitions": [
+      {
+        "meaning": "抢先做某事",
+        "pos": "phrase"
+      }
+    ],
+    "mastered": false,
+    "memory_method": "我正打算去买最后一张票，结果他beat me to it。(I was about to buy the last ticket, but he beat me to it.)",
+    "pronunciation": {
+      "American": "/biːt sʌb tuː ɪt/",
+      "British": ""
+    },
+    "timestamp": 1739065577628,
+    "word": "beat sb to it"
+  },
+  "fall out": {
+    "definitions": [
+      {
+        "meaning": "争吵；闹翻；结果是",
+        "pos": "phrase"
+      }
+    ],
+    "mastered": false,
+    "memory_method": "他们曾经是好朋友，但因为一点小事fall out了。(They were good friends once, but they fell out because of a small thing.)",
+    "pronunciation": {
+      "American": "/fɔːl aʊt/",
+      "British": ""
+    },
+    "timestamp": 1739065630021,
+    "word": "fall out"
+  },
+  "feel...so hard": {
+    "definitions": [
+      {
+        "meaning": "对……深有感触",
+        "pos": "phrase"
+      }
+    ],
+    "mastered": false,
+    "memory_method": "我对他的经历feel this so hard，因为我也有过类似的遭遇。(I feel his experience so hard because I've had similar experiences.)",
+    "pronunciation": {
+      "American": "/fiːl...so hɑːrd/",
+      "British": ""
+    },
+    "timestamp": 1739067792312,
+    "word": "feel...so hard"
+  },
+  "get dates": {
+    "definitions": [
+      {
+        "meaning": "有约会；获得约会机会",
+        "pos": "phrase"
+      }
+    ],
+    "mastered": false,
+    "memory_method": "他最近运气真好，总能get dates。(He's been really lucky recently and can always get dates.)",
+    "pronunciation": {
+      "American": "/ɡet deɪts/",
+      "British": ""
+    },
+    "timestamp": 1739065213440,
+    "word": "get dates"
+  },
+  "lmao": {
+    "definitions": [
+      {
+        "meaning": "笑死（laugh my ass off的缩写，用于表示非常好笑）",
+        "pos": "interj."
+      }
+    ],
+    "mastered": false,
+    "memory_method": "他刚刚讲的笑话太逗了，lmao。(The joke he just told was so funny, lmao.)",
+    "pronunciation": {
+      "American": "/ˌel em ˈeɪ oʊ/",
+      "British": ""
+    },
+    "timestamp": 1739065306546,
+    "word": "lmao"
+  },
+  "meme": {
+    "definitions": [
+      {
+        "meaning": "梗图；模因",
+        "pos": "n."
+      }
+    ],
+    "mastered": false,
+    "memory_method": "这个meme在网上迅速传播开来。(This meme spread quickly on the Internet.)",
+    "pronunciation": {
+      "American": "/ˈmiːm/",
+      "British": ""
+    },
+    "timestamp": 1739070741763,
+    "word": "meme"
+  },
+  "show off": {
+    "definitions": [
+      {
+        "meaning": "展示；炫耀",
+        "pos": "phrase"
+      }
+    ],
+    "mastered": false,
+    "memory_method": "他总是喜欢show off他的新玩具。(He always likes to show off his new toys.)",
+    "pronunciation": {
+      "American": "/ˈʃoʊ ɔːf/",
+      "British": ""
+    },
+    "timestamp": 1739070781645,
+    "word": "show off"
+  },
+  "swipe on": {
+    "definitions": [
+      {
+        "meaning": "（在手机屏幕上）滑动选择（如在约会软件上滑动选择感兴趣的人）",
+        "pos": "phrase"
+      }
+    ],
+    "mastered": false,
+    "memory_method": "你需要在这个应用上swipe on来选择你喜欢的商品。(You need to swipe on this app to choose the products you like.)",
+    "pronunciation": {
+      "American": "/ˈswaɪp ɑːn/",
+      "British": ""
+    },
+    "timestamp": 1739068014404,
+    "word": "swipe on"
+  }
+}
