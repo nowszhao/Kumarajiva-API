@@ -66,7 +66,10 @@ const useVocabStore = create((set, get) => ({
   fetchQuiz: async (word) => {
     try {
       const response = await api.post('/review/quiz', { word });
-      return response.data.data;
+      ret  =  response.data.data;
+      console.log("ret:",ret);
+
+      return ret;
     } catch (error) {
       console.error('Failed to fetch quiz:', error);
       return null;
