@@ -49,7 +49,15 @@ function LearningPage() {
 
   useEffect(() => {
     if (todayWords.length > 0 && currentWordIndex < todayWords.length) {
-      fetchQuiz(todayWords[currentWordIndex].word);
+      const loadQuiz = async () => {
+        try {
+          await fetchQuiz(todayWords[currentWordIndex].word);
+        } catch (error) {
+          console.error('Failed to load quiz:', error);
+          // 可以添加错误提示或重试逻辑
+        }
+      };
+      loadQuiz();
     }
   }, [todayWords, currentWordIndex]);
 
