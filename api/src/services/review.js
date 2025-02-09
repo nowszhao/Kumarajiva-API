@@ -234,7 +234,7 @@ class ReviewService {
 
     return {
       word: vocab.word,
-      phonetic: vocab.phonetic || null,
+      phonetic: vocab.pronunciation.American || null,
       audio: vocab.audio_url || null,
       definitions: targetDefs || [],
       examples: JSON.parse(vocab.examples || '[]'),

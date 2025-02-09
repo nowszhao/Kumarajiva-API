@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api'
+  baseURL: 'http://47.121.117.100:3000/api'
 });
 
 const useVocabStore = create((set, get) => ({
