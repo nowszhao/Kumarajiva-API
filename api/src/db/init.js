@@ -35,7 +35,7 @@ function initDatabase() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         date TEXT,
         current_word_index INTEGER DEFAULT 0,
-        total_words INTEGER DEFAULT 0,
+        total_words INTEGER DEFAULT 5,
         completed INTEGER DEFAULT 0,
         correct INTEGER DEFAULT 0
       )
