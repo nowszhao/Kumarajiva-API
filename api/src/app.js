@@ -22,7 +22,7 @@ fastify.register(require('@fastify/swagger-ui'), {
 
 // 注册 CORS 插件
 fastify.register(cors, {
-  origin: ['http://127.0.0.1:5173', 'http://localhost:5173'],
+  origin: true, // 允许所有网站的跨域请求
   methods: ['GET', 'PUT', 'POST', 'DELETE'],
   credentials: true
 });
