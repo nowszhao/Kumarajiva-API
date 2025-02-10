@@ -1,6 +1,13 @@
 const { db } = require('../db/init');
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
 const config = require('../config/learning');
+
+// 配置 dayjs 使用时区插件
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.tz.setDefault('Asia/Shanghai');
 
 class ReviewService {
   // 获取今日需要复习的词汇
@@ -16,7 +23,8 @@ class ReviewService {
         GROUP BY v.word
         HAVING 
           last_review_date IS NULL OR 
-          (julianday('now') - julianday(datetime(last_review_date/1000, 'unixepoch'))) >= 
+          (julianday(datetime('now', 'localtime')) - 
+           julianday(datetime(last_review_date/1000, 'unixepoch', '+8 hours'))) >= 
           CASE review_count
             WHEN 0 THEN ${config.reviewDays[0]}
             WHEN 1 THEN ${config.reviewDays[1]}
@@ -43,8 +51,8 @@ class ReviewService {
 
   // 获取今日可学习的新词数量
   async getTodayNewWordsCount() {
-    const today = dayjs().startOf('day').valueOf();
-    const todayEnd = dayjs().endOf('day').valueOf();
+    const today = dayjs().tz().startOf('day').valueOf();
+    const todayEnd = dayjs().tz().endOf('day').valueOf();
     
     return new Promise((resolve, reject) => {
       db.get(`
@@ -101,7 +109,7 @@ class ReviewService {
 
   // 获取或创建今日进度
   async getTodayProgress() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = dayjs().tz().format('YYYY-MM-DD');
     return new Promise((resolve, reject) => {
       db.get(
         'SELECT * FROM learning_progress WHERE date = ?',
@@ -159,7 +167,7 @@ class ReviewService {
 
   // 修改现有的记录复习方法
   async recordReview(word, result) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = dayjs().tz().format('YYYY-MM-DD');
     return new Promise((resolve, reject) => {
       db.serialize(() => {
         db.run(
@@ -281,16 +289,15 @@ class ReviewService {
 
   // 添加重置今日进度的方法
   async resetTodayProgress() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = dayjs().tz().format('YYYY-MM-DD');
     return new Promise((resolve, reject) => {
       db.serialize(() => {
-        // 开始事务
         db.run('BEGIN TRANSACTION');
 
-        // 删除今日的学习记录
+        // 删除今日的学习记录，使用本地时区
         db.run(
           `DELETE FROM learning_records 
-           WHERE date(datetime(review_date/1000, 'unixepoch')) = date(?)`,
+           WHERE date(datetime(review_date/1000, 'unixepoch', '+8 hours')) = date(?)`,
           [today]
         );
 
