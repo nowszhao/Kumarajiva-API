@@ -10,38 +10,103 @@ dayjs.extend(timezone);
 dayjs.tz.setDefault('Asia/Shanghai');
 
 class ReviewService {
-  // 获取今日需要复习的词汇
+  // 获取今日需要学习的所有词汇(新词+复习词)
   async getTodayReviewWords() {
+    const [newWords, reviewWords] = await Promise.all([
+      this.getTodayNewWords(),
+      this.getTodayReviewDueWords()
+    ]);
+
+    // 合并新词和复习词
+    return [...newWords, ...reviewWords];
+  }
+
+  // 获取今日新词
+  async getTodayNewWords() {
     return new Promise((resolve, reject) => {
       db.all(`
-        SELECT v.*, 
-               COUNT(lr.id) as review_count,
-               MAX(lr.review_date) as last_review_date
+        SELECT v.* 
         FROM vocabularies v
         LEFT JOIN learning_records lr ON v.word = lr.word
-        WHERE v.mastered = FALSE
-        GROUP BY v.word
-        HAVING 
-          last_review_date IS NULL OR 
-          (julianday(datetime('now', 'localtime')) - 
-           julianday(datetime(last_review_date/1000, 'unixepoch', '+8 hours'))) >= 
-          CASE review_count
-            WHEN 0 THEN ${config.reviewDays[0]}
-            WHEN 1 THEN ${config.reviewDays[1]}
-            WHEN 2 THEN ${config.reviewDays[2]}
-            WHEN 3 THEN ${config.reviewDays[3]}
-            WHEN 4 THEN ${config.reviewDays[4]}
-            ELSE ${config.reviewDays[5]}
-          END
-        LIMIT ${config.dailyReviewLimit}
-      `, (err, rows) => {
+        WHERE lr.word IS NULL  -- 从未学习过的词
+        AND v.mastered = FALSE
+        ORDER BY v.timestamp ASC
+        LIMIT ?
+      `, [config.dailyNewWords], (err, rows) => {
         if (err) reject(err);
         else {
           const words = rows.map(row => ({
             ...row,
             definitions: JSON.parse(row.definitions),
             pronunciation: JSON.parse(row.pronunciation),
-            review_count: row.review_count || 0
+            is_new: true,
+            review_count: 0
+          }));
+          resolve(words);
+        }
+      });
+    });
+  }
+
+  // 获取今日待复习词汇
+  async getTodayReviewDueWords() {
+    return new Promise((resolve, reject) => {
+      db.all(`
+        WITH review_stats AS (
+          SELECT 
+            word,
+            COUNT(*) as review_count,
+            MAX(review_date) as last_review_date,
+            SUM(CASE WHEN review_result = 1 THEN 1 ELSE 0 END) as correct_count,
+            SUM(CASE 
+              WHEN review_result = 1 AND review_date > (
+                SELECT MAX(review_date) 
+                FROM learning_records lr2 
+                WHERE lr2.word = learning_records.word 
+                AND lr2.review_result = 0
+              ) THEN 1 
+              ELSE 0 
+            END) as consecutive_correct
+          FROM learning_records
+          GROUP BY word
+        )
+        SELECT 
+          v.*,
+          COALESCE(rs.review_count, 0) as review_count,
+          rs.last_review_date,
+          COALESCE(rs.consecutive_correct, 0) as consecutive_correct,
+          COALESCE(rs.correct_count, 0) as correct_count
+        FROM vocabularies v
+        LEFT JOIN review_stats rs ON v.word = rs.word
+        WHERE 
+          v.mastered = FALSE
+          AND (
+            rs.last_review_date IS NOT NULL
+            AND (julianday(datetime('now', 'localtime')) - 
+                julianday(datetime(rs.last_review_date/1000, 'unixepoch', '+8 hours'))) >= 
+            CASE 
+              WHEN rs.review_count = 1 THEN ${config.reviewDays[0]}
+              WHEN rs.review_count = 2 THEN ${config.reviewDays[1]}
+              WHEN rs.review_count = 3 THEN ${config.reviewDays[2]}
+              WHEN rs.review_count = 4 THEN ${config.reviewDays[3]}
+              WHEN rs.review_count = 5 THEN ${config.reviewDays[4]}
+              ELSE ${config.reviewDays[5]}
+            END
+          )
+        ORDER BY 
+          (julianday(datetime('now', 'localtime')) - 
+           julianday(datetime(rs.last_review_date/1000, 'unixepoch', '+8 hours'))) DESC
+        LIMIT ?
+      `, [config.dailyReviewLimit - config.dailyNewWords], (err, rows) => {
+        if (err) reject(err);
+        else {
+          const words = rows.map(row => ({
+            ...row,
+            definitions: JSON.parse(row.definitions),
+            pronunciation: JSON.parse(row.pronunciation),
+            is_new: false,
+            review_count: row.review_count || 0,
+            consecutive_correct: row.consecutive_correct || 0
           }));
           resolve(words);
         }
@@ -70,25 +135,23 @@ class ReviewService {
   async checkMastery(word) {
     return new Promise((resolve, reject) => {
       db.get(`
-        SELECT COUNT(*) as correct_streak
-        FROM (
-          SELECT review_result
-          FROM learning_records
-          WHERE word = ?
-          ORDER BY review_date DESC
-          LIMIT ${config.masteryThreshold}
+        WITH consecutive_correct AS (
+          SELECT COUNT(*) as streak
+          FROM (
+            SELECT review_result
+            FROM learning_records
+            WHERE word = ?
+            ORDER BY review_date DESC
+            LIMIT ${config.masteryThreshold}
+          )
+          WHERE review_result = 1
         )
-        WHERE review_result = 1
-      `, [word], async (err, row) => {
-        if (err) {
-          reject(err);
-        } else if (row.correct_streak >= config.masteryThreshold) {
-          // 更新词汇掌握状态
-          await this.updateMasteryStatus(word, true);
-          resolve(true);
-        } else {
-          resolve(false);
-        }
+        SELECT 
+          CASE WHEN streak >= ${config.masteryThreshold} THEN 1 ELSE 0 END as is_mastered
+        FROM consecutive_correct
+      `, [word], (err, row) => {
+        if (err) reject(err);
+        else resolve(Boolean(row?.is_mastered));
       });
     });
   }
@@ -168,32 +231,52 @@ class ReviewService {
   // 修改现有的记录复习方法
   async recordReview(word, result) {
     const today = dayjs().tz().format('YYYY-MM-DD');
+    
     return new Promise((resolve, reject) => {
-      db.serialize(() => {
-        db.run(
-          `INSERT INTO learning_records (word, review_date, review_result) 
-           VALUES (?, ?, ?)`,
-          [word, Date.now(), result ? 1 : 0],
-          async (err) => {
-            if (err) {
-              reject(err);
-              return;
-            }
-            
-            // 更新进度
+      db.serialize(async () => {
+        try {
+          // 开始事务
+          db.run('BEGIN TRANSACTION');
+
+          // 1. 记录复习结果
+          await new Promise((res, rej) => {
+            db.run(
+              `INSERT INTO learning_records (word, review_date, review_result) 
+               VALUES (?, ?, ?)`,
+              [word, Date.now(), result ? 1 : 0],
+              (err) => err ? rej(err) : res()
+            );
+          });
+
+          // 2. 检查是否达到掌握标准
+          const mastered = await this.checkMastery(word);
+          if (mastered) {
+            await this.updateMasteryStatus(word, true);
+          }
+
+          // 3. 更新今日进度
+          await new Promise((res, rej) => {
             db.run(
               `UPDATE learning_progress 
                SET completed = completed + 1,
                    correct = correct + CASE WHEN ? THEN 1 ELSE 0 END
                WHERE date = ?`,
               [result ? 1 : 0, today],
-              (err) => {
-                if (err) reject(err);
-                else resolve(true);
-              }
+              (err) => err ? rej(err) : res()
             );
-          }
-        );
+          });
+
+          // 提交事务
+          db.run('COMMIT');
+          resolve({
+            success: true,
+            mastered,
+            result
+          });
+        } catch (error) {
+          db.run('ROLLBACK');
+          reject(error);
+        }
       });
     });
   }
