@@ -84,23 +84,29 @@ class ReviewService {
           v.mastered = FALSE
           AND (
             rs.last_review_date IS NOT NULL
-            AND (julianday(datetime('now', 'localtime')) - 
-                julianday(datetime(rs.last_review_date/1000, 'unixepoch', '+8 hours'))) >= 
+            AND (
+              julianday(datetime('now', 'localtime')) - 
+              julianday(datetime(rs.last_review_date/1000, 'unixepoch', '+8 hours'))
+            ) >= 
             CASE 
-              WHEN rs.review_count = 1 THEN ${config.reviewDays[0]}
-              WHEN rs.review_count = 2 THEN ${config.reviewDays[1]}
-              WHEN rs.review_count = 3 THEN ${config.reviewDays[2]}
-              WHEN rs.review_count = 4 THEN ${config.reviewDays[3]}
-              WHEN rs.review_count = 5 THEN ${config.reviewDays[4]}
+              WHEN COALESCE(rs.review_count, 0) = 1 THEN ${config.reviewDays[0]}
+              WHEN COALESCE(rs.review_count, 0) = 2 THEN ${config.reviewDays[1]}
+              WHEN COALESCE(rs.review_count, 0) = 3 THEN ${config.reviewDays[2]}
+              WHEN COALESCE(rs.review_count, 0) = 4 THEN ${config.reviewDays[3]}
+              WHEN COALESCE(rs.review_count, 0) = 5 THEN ${config.reviewDays[4]}
               ELSE ${config.reviewDays[5]}
             END
           )
         ORDER BY 
+          CASE 
+            WHEN rs.last_review_date IS NULL THEN 1
+            ELSE 2
+          END,
           (julianday(datetime('now', 'localtime')) - 
-           julianday(datetime(rs.last_review_date/1000, 'unixepoch', '+8 hours'))) DESC
+           julianday(datetime(COALESCE(rs.last_review_date, 0)/1000, 'unixepoch', '+8 hours'))) DESC
         LIMIT ?
       `;
-      console.log("getTodayReviewDueWords-sql",sql);
+      console.log("getTodayReviewDueWords-sql", sql);
       db.all(sql, [config.dailyReviewLimit - config.dailyNewWords], (err, rows) => {
         if (err) reject(err);
         else {
