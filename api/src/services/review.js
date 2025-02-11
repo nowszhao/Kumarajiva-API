@@ -24,7 +24,7 @@ class ReviewService {
   // 获取今日新词
   async getTodayNewWords() {
     return new Promise((resolve, reject) => {
-      db.all(`
+      const sql = `
         SELECT v.* 
         FROM vocabularies v
         LEFT JOIN learning_records lr ON v.word = lr.word
@@ -32,7 +32,9 @@ class ReviewService {
         AND v.mastered = FALSE
         ORDER BY v.timestamp ASC
         LIMIT ?
-      `, [config.dailyNewWords], (err, rows) => {
+      `;
+      console.log("getTodayNewWords-sql",sql);
+      db.all(sql, [config.dailyNewWords], (err, rows) => {
         if (err) reject(err);
         else {
           const words = rows.map(row => ({
@@ -51,7 +53,7 @@ class ReviewService {
   // 获取今日待复习词汇
   async getTodayReviewDueWords() {
     return new Promise((resolve, reject) => {
-      db.all(`
+      const sql = `
         WITH review_stats AS (
           SELECT 
             word,
@@ -97,7 +99,9 @@ class ReviewService {
           (julianday(datetime('now', 'localtime')) - 
            julianday(datetime(rs.last_review_date/1000, 'unixepoch', '+8 hours'))) DESC
         LIMIT ?
-      `, [config.dailyReviewLimit - config.dailyNewWords], (err, rows) => {
+      `;
+      console.log("getTodayReviewDueWords-sql",sql);
+      db.all(sql, [config.dailyReviewLimit - config.dailyNewWords], (err, rows) => {
         if (err) reject(err);
         else {
           const words = rows.map(row => ({
