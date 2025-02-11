@@ -1,10 +1,10 @@
 // 学习配置
 const learningConfig = {
   // 每日新词数量
-  dailyNewWords: 5,
+  dailyNewWords: 10,
   
   // 每日复习数量上限
-  dailyReviewLimit: 5,
+  dailyReviewLimit: 20,
   
   // 艾宾浩斯复习时间点（天数）
   reviewDays: [1, 2, 4, 7, 15, 30],

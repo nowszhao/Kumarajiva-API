@@ -15,12 +15,14 @@ class ReviewService {
     return new Promise((resolve, reject) => {
       db.all(`
         SELECT v.*, 
-               COUNT(lr.id) as review_count,
-               MAX(lr.review_date) as last_review_date
+               (SELECT COUNT(*) 
+                FROM learning_records lr2 
+                WHERE lr2.word = v.word) as review_count,
+               (SELECT MAX(review_date) 
+                FROM learning_records lr3 
+                WHERE lr3.word = v.word) as last_review_date
         FROM vocabularies v
-        LEFT JOIN learning_records lr ON v.word = lr.word
         WHERE v.mastered = FALSE
-        GROUP BY v.word
         HAVING 
           last_review_date IS NULL OR 
           (julianday(datetime('now', 'localtime')) - 
