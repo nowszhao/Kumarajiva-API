@@ -77,39 +77,45 @@ class ReviewService {
           COALESCE(rs.review_count, 0) as review_count,
           rs.last_review_date,
           COALESCE(rs.consecutive_correct, 0) as consecutive_correct,
-          COALESCE(rs.correct_count, 0) as correct_count
+          COALESCE(rs.correct_count, 0) as correct_count,
+          CASE 
+            WHEN rs.last_review_date IS NULL THEN 0
+            ELSE (julianday(datetime('now', 'localtime')) - 
+                  julianday(datetime(rs.last_review_date/1000, 'unixepoch', '+8 hours')))
+          END as days_since_last_review
         FROM vocabularies v
+        INNER JOIN learning_records lr ON v.word = lr.word
         LEFT JOIN review_stats rs ON v.word = rs.word
         WHERE 
           v.mastered = FALSE
           AND (
-            rs.last_review_date IS NOT NULL
-            AND (
-              julianday(datetime('now', 'localtime')) - 
-              julianday(datetime(rs.last_review_date/1000, 'unixepoch', '+8 hours'))
-            ) >= 
-            CASE 
-              WHEN COALESCE(rs.review_count, 0) = 1 THEN ${config.reviewDays[0]}
-              WHEN COALESCE(rs.review_count, 0) = 2 THEN ${config.reviewDays[1]}
-              WHEN COALESCE(rs.review_count, 0) = 3 THEN ${config.reviewDays[2]}
-              WHEN COALESCE(rs.review_count, 0) = 4 THEN ${config.reviewDays[3]}
-              WHEN COALESCE(rs.review_count, 0) = 5 THEN ${config.reviewDays[4]}
-              ELSE ${config.reviewDays[5]}
-            END
+            rs.last_review_date IS NULL
+            OR (
+              CASE 
+                WHEN rs.review_count = 1 THEN ${config.reviewDays[0]}
+                WHEN rs.review_count = 2 THEN ${config.reviewDays[1]}
+                WHEN rs.review_count = 3 THEN ${config.reviewDays[2]}
+                WHEN rs.review_count = 4 THEN ${config.reviewDays[3]}
+                WHEN rs.review_count = 5 THEN ${config.reviewDays[4]}
+                ELSE ${config.reviewDays[5]}
+              END <= (
+                julianday(datetime('now', 'localtime')) - 
+                julianday(datetime(rs.last_review_date/1000, 'unixepoch', '+8 hours'))
+              )
+            )
           )
+        GROUP BY v.word
         ORDER BY 
-          CASE 
-            WHEN rs.last_review_date IS NULL THEN 1
-            ELSE 2
-          END,
-          (julianday(datetime('now', 'localtime')) - 
-           julianday(datetime(COALESCE(rs.last_review_date, 0)/1000, 'unixepoch', '+8 hours'))) DESC
+          days_since_last_review DESC
         LIMIT ?
       `;
       console.log("getTodayReviewDueWords-sql", sql);
       db.all(sql, [config.dailyReviewLimit - config.dailyNewWords], (err, rows) => {
-        if (err) reject(err);
-        else {
+        if (err) {
+          console.error("getTodayReviewDueWords error:", err);
+          reject(err);
+        } else {
+          console.log("getTodayReviewDueWords rows:", rows?.length);
           const words = rows.map(row => ({
             ...row,
             definitions: JSON.parse(row.definitions),
