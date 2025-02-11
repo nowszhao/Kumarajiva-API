@@ -99,8 +99,8 @@ class ReviewService {
                 WHEN rs.review_count = 5 THEN ${config.reviewDays[4]}
                 ELSE ${config.reviewDays[5]}
               END <= (
-                julianday(datetime('now', 'localtime')) - 
-                julianday(datetime(rs.last_review_date/1000, 'unixepoch', '+8 hours'))
+                julianday(date('now', 'localtime')) - 
+                julianday(date(rs.last_review_date/1000, 'unixepoch', '+8 hours'))
               )
             )
           )
