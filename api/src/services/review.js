@@ -14,26 +14,18 @@ class ReviewService {
   async getTodayReviewWords() {
     return new Promise((resolve, reject) => {
       db.all(`
-        WITH review_stats AS (
-          SELECT 
-            word,
-            COUNT(*) as review_count,
-            MAX(review_date) as last_review_date
-          FROM learning_records
-          GROUP BY word
-        )
         SELECT v.*, 
-               COALESCE(rs.review_count, 0) as review_count,
-               rs.last_review_date
+               COUNT(lr.id) as review_count,
+               MAX(lr.review_date) as last_review_date
         FROM vocabularies v
-        LEFT JOIN review_stats rs ON v.word = rs.word
+        LEFT JOIN learning_records lr ON v.word = lr.word
         WHERE v.mastered = FALSE
         GROUP BY v.word
         HAVING 
           last_review_date IS NULL OR 
           (julianday(datetime('now', 'localtime')) - 
            julianday(datetime(last_review_date/1000, 'unixepoch', '+8 hours'))) >= 
-          CASE COALESCE(rs.review_count, 0)
+          CASE review_count
             WHEN 0 THEN ${config.reviewDays[0]}
             WHEN 1 THEN ${config.reviewDays[1]}
             WHEN 2 THEN ${config.reviewDays[2]}
