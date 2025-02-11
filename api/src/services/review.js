@@ -23,6 +23,7 @@ class ReviewService {
                 WHERE lr3.word = v.word) as last_review_date
         FROM vocabularies v
         WHERE v.mastered = FALSE
+        GROUP BY v.word
         HAVING 
           last_review_date IS NULL OR 
           (julianday(datetime('now', 'localtime')) - 
