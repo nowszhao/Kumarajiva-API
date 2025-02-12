@@ -229,7 +229,7 @@ class ReviewService {
 
   // 更新学习进度
   async updateProgress(progress) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = dayjs().tz().format('YYYY-MM-DD');
     return new Promise((resolve, reject) => {
       db.run(
         `UPDATE learning_progress 
@@ -271,16 +271,16 @@ class ReviewService {
           }
 
           // 3. 更新今日进度
-          await new Promise((res, rej) => {
-            db.run(
-              `UPDATE learning_progress 
-               SET completed = completed + 1,
-                   correct = correct + CASE WHEN ? THEN 1 ELSE 0 END
-               WHERE date = ?`,
-              [result ? 1 : 0, today],
-              (err) => err ? rej(err) : res()
-            );
-          });
+          // await new Promise((res, rej) => {
+          //   db.run(
+          //     `UPDATE learning_progress 
+          //      SET completed = completed + 1,
+          //          correct = correct + CASE WHEN ? THEN 1 ELSE 0 END
+          //      WHERE date = ?`,
+          //     [result ? 1 : 0, today],
+          //     (err) => err ? rej(err) : res()
+          //   );
+          // });
 
           // 提交事务
           db.run('COMMIT');
