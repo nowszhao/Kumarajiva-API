@@ -439,10 +439,11 @@ class ReviewService {
         });
       });
 
+      const newWordsCount = await this.getTodayNewWordsCount();
       return {
         totalWordsCount: stats.total_words,
-        newWordsCount: stats.learned_words,
-        reviewWordsCount: stats.learned_words - stats.mastered_words,
+        newWordsCount: newWordsCount,
+        reviewWordsCount: stats.learned_words - stats.mastered_words - newWordsCount,
         masteredWordsCount: stats.mastered_words
       };
     } catch (error) {
