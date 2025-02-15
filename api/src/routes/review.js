@@ -71,6 +71,16 @@ async function routes(fastify, options) {
       reply.status(500).send({ success: false, error: error.message });
     }
   });
+
+  // 获取当前实时数据统计
+  fastify.get('/stats', async (request, reply) => {
+    try {
+      const stats = await reviewService.getCurrentStats();
+      reply.send({ success: true, data: stats });
+    } catch (error) {
+      reply.status(500).send({ success: false, error: error.message });
+    }
+  });
 }
 
 module.exports = routes;

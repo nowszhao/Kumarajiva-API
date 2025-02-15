@@ -419,6 +419,27 @@ class ReviewService {
       });
     });
   }
+
+  // 获取用户当前的实时数据: 正在学习的新词数、复习的单词数和掌握的单词数
+  async getCurrentStats() {
+    try {
+      const newWords = await this.getTodayNewWords();
+      const reviewWords = await this.getTodayReviewDueWords();
+      const masteredWordsCount = await new Promise((resolve, reject) => {
+        db.get('SELECT COUNT(*) as count FROM vocabularies WHERE mastered = 1', (err, row) => {
+          if (err) reject(err);
+          else resolve(row.count);
+        });
+      });
+      return {
+        newWordsCount: newWords.length,
+        reviewWordsCount: reviewWords.length,
+        masteredWordsCount
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 
 module.exports = new ReviewService();
