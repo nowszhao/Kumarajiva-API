@@ -420,21 +420,30 @@ class ReviewService {
     });
   }
 
-  // 获取用户当前的实时数据: 正在学习的新词数、复习的单词数和掌握的单词数
+  // 获取用户当前的实时数据统计
   async getCurrentStats() {
     try {
-      const newWords = await this.getTodayNewWords();
-      const reviewWords = await this.getTodayReviewDueWords();
-      const masteredWordsCount = await new Promise((resolve, reject) => {
-        db.get('SELECT COUNT(*) as count FROM vocabularies WHERE mastered = 1', (err, row) => {
+      const stats = await new Promise((resolve, reject) => {
+        db.all(`
+          SELECT 
+            COUNT(*) as total_words,
+            SUM(CASE WHEN mastered = 1 THEN 1 ELSE 0 END) as mastered_words,
+            (
+              SELECT COUNT(DISTINCT word) 
+              FROM learning_records
+            ) as learned_words
+          FROM vocabularies
+        `, (err, rows) => {
           if (err) reject(err);
-          else resolve(row.count);
+          else resolve(rows[0]);
         });
       });
+
       return {
-        newWordsCount: newWords.length,
-        reviewWordsCount: reviewWords.length,
-        masteredWordsCount
+        totalWordsCount: stats.total_words,
+        newWordsCount: stats.learned_words,
+        reviewWordsCount: stats.learned_words - stats.mastered_words,
+        masteredWordsCount: stats.mastered_words
       };
     } catch (error) {
       throw error;
