@@ -130,4 +130,5 @@ dist
 .pnp.*
 
 api/node_modules/
+api/vocab.db
 web/node_modules/
