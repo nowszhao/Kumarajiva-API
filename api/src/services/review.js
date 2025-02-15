@@ -439,7 +439,7 @@ class ReviewService {
         });
       });
 
-      const newWordsCount = await this.getTodayNewWordsCount();
+      const newWordsCount = config.dailyNewWords;
       return {
         totalWordsCount: stats.total_words,
         newWordsCount: newWordsCount,
