@@ -443,7 +443,7 @@ class ReviewService {
       return {
         totalWordsCount: stats.total_words,
         newWordsCount: newWordsCount,
-        reviewWordsCount: stats.learned_words - stats.mastered_words - newWordsCount,
+        reviewWordsCount: stats.learned_words - (stats.mastered_words + newWordsCount),
         masteredWordsCount: stats.mastered_words
       };
     } catch (error) {
