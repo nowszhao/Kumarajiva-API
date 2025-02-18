@@ -82,7 +82,22 @@ class ReviewService {
             WHEN rs.last_review_date IS NULL THEN 0
             ELSE (julianday(datetime('now', 'localtime')) - 
                   julianday(datetime(rs.last_review_date/1000, 'unixepoch', '+8 hours')))
-          END as days_since_last_review
+          END as days_since_last_review,
+          CASE 
+            WHEN rs.last_review_date IS NULL THEN 1000
+            ELSE (
+              (julianday(datetime('now', 'localtime')) - 
+               julianday(datetime(rs.last_review_date/1000, 'unixepoch', '+8 hours'))) /
+              CASE 
+                WHEN rs.review_count = 1 THEN ${config.reviewDays[0]}
+                WHEN rs.review_count = 2 THEN ${config.reviewDays[1]}
+                WHEN rs.review_count = 3 THEN ${config.reviewDays[2]}
+                WHEN rs.review_count = 4 THEN ${config.reviewDays[3]}
+                WHEN rs.review_count = 5 THEN ${config.reviewDays[4]}
+                ELSE ${config.reviewDays[5]}
+              END
+            )
+          END as review_urgency_score
         FROM vocabularies v
         INNER JOIN learning_records lr ON v.word = lr.word
         LEFT JOIN review_stats rs ON v.word = rs.word
@@ -106,7 +121,8 @@ class ReviewService {
           )
         GROUP BY v.word
         ORDER BY 
-          days_since_last_review DESC
+          review_urgency_score DESC,  -- 首先按紧急程度排序
+          days_since_last_review DESC  -- 其次按最后复习时间排序
         LIMIT ?
       `;
       console.log("getTodayReviewDueWords-sql", sql);
