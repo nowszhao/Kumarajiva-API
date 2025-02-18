@@ -418,8 +418,7 @@ class ReviewService {
 
         // 重置今日进度
         db.run(
-          `UPDATE learning_progress 
-           SET current_word_index = 0, completed = 0, correct = 0 
+          `DELETE FROM learning_progress 
            WHERE date = ?`,
           [today],
           (err) => {
