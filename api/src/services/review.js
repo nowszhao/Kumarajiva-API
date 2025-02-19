@@ -370,139 +370,34 @@ class ReviewService {
     };
   }
 
-  // 增强获取学习历史记录方法
-  async getLearningHistory(filters = {}) {
-    const {
-      startDate,
-      endDate,
-      wordType,
-      limit = 100,
-      offset = 0
-    } = filters;
-
+  // 获取学习历史记录
+  async getLearningHistory() {
     return new Promise((resolve, reject) => {
-      let conditions = [];
-      let params = [];
-
-      // 添加时间范围条件
-      if (startDate) {
-        conditions.push('lr.review_date >= ?');
-        params.push(new Date(startDate).getTime());
-      }
-      if (endDate) {
-        conditions.push('lr.review_date <= ?');
-        params.push(new Date(endDate).getTime());
-      }
-
-      // 添加单词类型条件
-      if (wordType) {
-        switch(wordType) {
-          case 'new':
-            conditions.push('review_stats.review_count = 1');
-            break;
-          case 'reviewing':
-            conditions.push('review_stats.review_count > 1 AND v.mastered = 0');
-            break;
-          case 'mastered':
-            conditions.push('v.mastered = 1');
-            break;
-          case 'wrong':
-            conditions.push('review_stats.review_count > review_stats.correct_count');
-            break;
-        }
-      }
-
-      const whereClause = conditions.length > 0 
-        ? `AND ${conditions.join(' AND ')}` 
-        : '';
-
-      const sql = `
-        WITH review_stats AS (
-          SELECT 
-            word,
-            COUNT(*) as review_count,
-            MAX(review_date) as last_review_date,
-            SUM(CASE WHEN review_result = 1 THEN 1 ELSE 0 END) as correct_count
-          FROM learning_records
-          GROUP BY word
-        )
+      db.all(`
         SELECT 
           v.*,
-          review_stats.last_review_date,
-          COALESCE(review_stats.review_count, 0) as review_count,
-          COALESCE(review_stats.correct_count, 0) as correct_count,
-          (
-            SELECT GROUP_CONCAT(
-              json_object(
-                'date', lr.review_date,
-                'result', lr.review_result
-              )
-            )
-            FROM learning_records lr
-            WHERE lr.word = v.word
-            ORDER BY lr.review_date DESC
-            LIMIT 10
-          ) as recent_reviews
+          MAX(lr.review_date) as last_review_date,
+          COUNT(lr.id) as review_count,
+          SUM(CASE WHEN lr.review_result = 1 THEN 1 ELSE 0 END) as correct_count
         FROM vocabularies v
-        LEFT JOIN review_stats ON v.word = review_stats.word
-        WHERE review_stats.word IS NOT NULL
-        ${whereClause}
-        ORDER BY review_stats.last_review_date DESC
-        LIMIT ? OFFSET ?
-      `;
-
-      // 添加分页参数
-      params.push(limit, offset);
-
-      // 获取总记录数
-      const countSql = `
-        WITH review_stats AS (
-          SELECT 
-            word,
-            COUNT(*) as review_count,
-            SUM(CASE WHEN review_result = 1 THEN 1 ELSE 0 END) as correct_count
-          FROM learning_records
-          GROUP BY word
-        )
-        SELECT COUNT(*) as total
-        FROM vocabularies v
-        LEFT JOIN review_stats ON v.word = review_stats.word
-        WHERE review_stats.word IS NOT NULL
-        ${whereClause}
-      `;
-
-      db.serialize(() => {
-        db.get(countSql, params.slice(0, -2), (err, countRow) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-
-          db.all(sql, params, (err, rows) => {
-            if (err) {
-              reject(err);
-              return;
-            }
-
-            const words = rows.map(row => ({
-              ...row,
-              definitions: JSON.parse(row.definitions),
-              pronunciation: JSON.parse(row.pronunciation),
-              examples: JSON.parse(row.examples || '[]'),
-              recent_reviews: row.recent_reviews ? JSON.parse(`[${row.recent_reviews}]`) : [],
-              last_review_date: row.last_review_date,
-              review_count: row.review_count,
-              correct_count: row.correct_count
-            }));
-
-            resolve({
-              total: countRow.total,
-              data: words,
-              limit,
-              offset
-            });
-          });
-        });
+        LEFT JOIN learning_records lr ON v.word = lr.word
+        WHERE lr.review_date IS NOT NULL
+        GROUP BY v.word
+        ORDER BY last_review_date DESC
+      `, [], (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          const words = rows.map(row => ({
+            ...row,
+            definitions: JSON.parse(row.definitions),
+            examples: JSON.parse(row.examples || '[]'),
+            last_review_date: row.last_review_date,
+            review_count: row.review_count,
+            correct_count: row.correct_count
+          }));
+          resolve(words);
+        }
       });
     });
   }
