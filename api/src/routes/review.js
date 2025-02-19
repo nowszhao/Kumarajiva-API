@@ -34,10 +34,29 @@ async function routes(fastify, options) {
   // 获取学习历史记录
   fastify.get('/history', async (request, reply) => {
     try {
-      const history = await reviewService.getLearningHistory();
-      reply.send({ success: true, data: history });
+      const {
+        startDate,
+        endDate,
+        wordType,
+        limit,
+        offset
+      } = request.query;
+
+      const filters = {
+        startDate,
+        endDate,
+        wordType,
+        limit: parseInt(limit) || 100,
+        offset: parseInt(offset) || 0
+      };
+
+      const history = await reviewService.getLearningHistory(filters);
+      reply.send({ success: true, ...history });
     } catch (error) {
-      reply.status(500).send({ success: false, error: error.message });
+      reply.status(500).send({ 
+        success: false, 
+        error: error.message 
+      });
     }
   });
 
