@@ -370,34 +370,222 @@ class ReviewService {
     };
   }
 
-  // 获取学习历史记录
-  async getLearningHistory() {
+  // 增强获取学习历史记录方法
+  async getLearningHistory(filters = {}) {
+    const {
+      startDate,
+      endDate,
+      wordType,
+      limit = 100,
+      offset = 0
+    } = filters;
+
+    // 验证和转换时间戳
+    let startTs = null;
+    let endTs = null;
+    
+    try {
+      if (startDate) {
+        startTs = parseInt(startDate);
+        if (isNaN(startTs)) throw new Error('Invalid startDate');
+      }
+      if (endDate) {
+        endTs = parseInt(endDate);
+        if (isNaN(endTs)) throw new Error('Invalid endDate');
+      }
+    } catch (error) {
+      throw new Error('Invalid time format');
+    }
+
+    console.log("Input filters:", {
+      startDate: startTs ? new Date(startTs).toISOString() : null,
+      endDate: endTs ? new Date(endTs).toISOString() : null,
+      wordType,
+      limit,
+      offset
+    });
+
     return new Promise((resolve, reject) => {
-      db.all(`
+      let conditions = [];
+      let timeParams = [];
+      let queryParams = [];
+
+      // 构建时间范围条件
+      let timeRangeJoin = '';
+      if (startTs || endTs) {
+        const timeConditions = [];
+        if (startTs) {
+          timeConditions.push('review_date >= ?');
+          timeParams.push(startTs);
+          console.log("Added startDate param:", startTs, new Date(startTs).toISOString());
+        }
+        if (endTs) {
+          timeConditions.push('review_date <= ?');
+          timeParams.push(endTs);
+          console.log("Added endDate param:", endTs, new Date(endTs).toISOString());
+        }
+
+        if (timeConditions.length > 0) {
+          timeRangeJoin = `
+            INNER JOIN (
+              SELECT DISTINCT word 
+              FROM learning_records 
+              WHERE ${timeConditions.join(' AND ')}
+            ) time_filter ON v.word = time_filter.word
+          `;
+        }
+      }
+
+      // 修改单词类型条件
+      if (wordType && wordType !== 'all') {
+        switch(wordType) {
+          case 'new':
+            conditions.push('review_stats.review_count = 1');
+            break;
+          case 'reviewing':
+            conditions.push('review_stats.review_count > 1 AND v.mastered = 0');
+            break;
+          case 'mastered':
+            conditions.push('v.mastered = 1');
+            break;
+          case 'wrong':
+            conditions.push(`
+              review_stats.correct_count < review_stats.review_count 
+              AND v.mastered = 0
+            `);
+            break;
+        }
+      }
+
+      const whereClause = conditions.length > 0 
+        ? `AND ${conditions.join(' AND ')}` 
+        : '';
+
+      const sql = `
+        WITH review_stats AS (
+          SELECT 
+            word,
+            COUNT(*) as review_count,
+            MAX(review_date) as last_review_date,
+            SUM(CASE WHEN review_result = 1 THEN 1 ELSE 0 END) as correct_count
+          FROM learning_records
+          GROUP BY word
+        )
         SELECT 
           v.*,
-          MAX(lr.review_date) as last_review_date,
-          COUNT(lr.id) as review_count,
-          SUM(CASE WHEN lr.review_result = 1 THEN 1 ELSE 0 END) as correct_count
+          COALESCE(review_stats.last_review_date, v.timestamp) as last_review_date,
+          COALESCE(review_stats.review_count, 0) as review_count,
+          COALESCE(review_stats.correct_count, 0) as correct_count
         FROM vocabularies v
-        LEFT JOIN learning_records lr ON v.word = lr.word
-        WHERE lr.review_date IS NOT NULL
-        GROUP BY v.word
-        ORDER BY last_review_date DESC
-      `, [], (err, rows) => {
-        if (err) {
-          reject(err);
-        } else {
-          const words = rows.map(row => ({
-            ...row,
-            definitions: JSON.parse(row.definitions),
-            examples: JSON.parse(row.examples || '[]'),
-            last_review_date: row.last_review_date,
-            review_count: row.review_count,
-            correct_count: row.correct_count
-          }));
-          resolve(words);
+        LEFT JOIN review_stats ON v.word = review_stats.word
+        ${timeRangeJoin}
+        WHERE (review_stats.word IS NOT NULL OR ? = 'all')
+        ${whereClause}
+        ORDER BY last_review_date DESC, v.timestamp DESC
+        LIMIT ? OFFSET ?
+      `;
+
+      // 构建完整的参数数组
+      queryParams = [
+        ...timeParams,           
+        wordType || 'all',       
+        limit,                   
+        offset                   
+      ];
+
+      // 添加计数 SQL
+      const countSql = `
+        WITH review_stats AS (
+          SELECT 
+            word,
+            COUNT(*) as review_count,
+            MAX(review_date) as last_review_date,
+            SUM(CASE WHEN review_result = 1 THEN 1 ELSE 0 END) as correct_count
+          FROM learning_records
+          GROUP BY word
+        )
+        SELECT COUNT(DISTINCT v.word) as total
+        FROM vocabularies v
+        LEFT JOIN review_stats ON v.word = review_stats.word
+        ${timeRangeJoin}
+        WHERE (review_stats.word IS NOT NULL OR ? = 'all')
+        ${whereClause}
+      `;
+
+      console.log("Time range join:", timeRangeJoin);
+      console.log("Where clause:", whereClause);
+      console.log("Time params:", timeParams.map(ts => ({
+        timestamp: ts,
+        date: new Date(ts).toISOString()
+      })));
+      console.log("Query params:", queryParams.map(p => 
+        typeof p === 'number' ? {
+          value: p,
+          date: new Date(p).toISOString()
+        } : p
+      ));
+
+      // 验证数据是否存在
+      const checkSql = `
+        SELECT COUNT(*) as count 
+        FROM learning_records 
+        WHERE review_date >= ? AND review_date <= ?
+      `;
+      
+      db.serialize(() => {
+        // 首先检查时间范围内是否有数据
+        if (startDate && endDate) {
+          db.get(checkSql, [timeParams[0], timeParams[1]], (err, row) => {
+            console.log("Records in time range:", row?.count);
+          });
         }
+
+        // 计数查询使用除了 limit 和 offset 之外的参数
+        const countParams = [...timeParams, wordType || 'all'];
+        
+        db.get(countSql, countParams, (err, countRow) => {
+          if (err) {
+            console.error("Count query error:", err);
+            reject(err);
+            return;
+          }
+          console.log("Count result:", countRow);
+
+          db.all(sql, queryParams, (err, rows) => {
+            if (err) {
+              console.error("Main query error:", err);
+              reject(err);
+              return;
+            }
+            console.log("Raw rows count:", rows?.length);
+
+            const words = rows.map(row => ({
+              ...row,
+              definitions: JSON.parse(row.definitions),
+              pronunciation: JSON.parse(row.pronunciation),
+              examples: JSON.parse(row.examples || '[]'),
+              last_review_date: row.last_review_date,
+              review_count: row.review_count,
+              correct_count: row.correct_count
+            }));
+
+            console.log("Processed words count:", words.length);
+            if (words.length > 0) {
+              console.log("Sample word:", {
+                word: words[0].word,
+                last_review_date: new Date(words[0].last_review_date).toISOString(),
+                review_count: words[0].review_count
+              });
+            }
+
+            resolve({
+              total: countRow.total,
+              data: words,
+              limit,
+              offset
+            });
+          });
+        });
       });
     });
   }
@@ -455,10 +643,14 @@ class ReviewService {
       });
 
       const newWordsCount = config.dailyNewWords;
+      var reviewWordsCount = 0
+      if(stats.learned_words - (stats.mastered_words + newWordsCount) > 0){
+        reviewWordsCount = stats.learned_words - (stats.mastered_words + newWordsCount)
+      }
       return {
         totalWordsCount: stats.total_words,
         newWordsCount: newWordsCount,
-        reviewWordsCount: stats.learned_words - (stats.mastered_words + newWordsCount),
+        reviewWordsCount: reviewWordsCount,
         masteredWordsCount: stats.mastered_words
       };
     } catch (error) {
