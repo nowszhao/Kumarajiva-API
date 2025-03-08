@@ -1,86 +1,147 @@
-# Vocabulary Learning System
+# 词汇管理系统
 
-This repository implements a comprehensive vocabulary learning and review system consisting of two main components:
+一个简单的词汇管理系统，用于管理和学习英语词汇。
 
-- **Backend API:** Built with Fastify and SQLite for managing vocabularies, reviews, and learning progress.
-- **Frontend Client:** Built with React and Vite, providing an interactive interface for vocabulary quizzes and history tracking.
+## 功能特点
 
-## Project Structure
+- 词汇的增删改查
+- 词汇列表展示
+- 词汇搜索和筛选
+- 分页功能
+- 批量删除
+- 掌握状态管理
+- 例句/记忆方法展示
+- 响应式设计
 
-**Backend (API)**
-- **`/api` Directory:**
-  - **`src/config/learning.js`**: Contains learning configuration (daily new words, review limits, Ebbinghaus review intervals, etc.).
-  - **`src/routes/vocab.js` & `src/routes/review.js`**: Define API endpoints for vocabulary management and review sessions.
-  - **`src/services/vocab.js` & `src/services/review.js`**: Business logic for processing vocabulary data and managing spaced repetition.
-  - **`src/db/init.js`**: Initializes the SQLite database with tables for vocabularies, learning records, and progress.
-  - **`src/cli.js`**: Command-line tool for importing/exporting vocabulary data from/to JSON files.
-  
-**Frontend (web)**
-- **`web` Directory:**
-  - **`src/pages/LearningPage.jsx`**: The main page where users study vocabularies via quizzes.
-  - **`src/pages/HistoryPage.jsx`**: Displays history and statistics of learning sessions.
-  - **`src/stores/useVocabStore.js`**: Zustand store for state management.
-  - **Other configurations** include Vite for development, Tailwind CSS and DaisyUI for styling, and ESLint for code quality.
+## 技术栈
 
-## Getting Started
+### 前端
+- React 18
+- Vite
+- Tailwind CSS
+- DaisyUI
+- Axios
+- React Hot Toast
+- Heroicons
 
-### Prerequisites
-- Node.js (v14 or later)
-- npm or yarn
+### 后端
+- Fastify
+- SQLite3
+- Node.js
 
-### Backend Setup
+## 项目结构
 
-1. **Install Dependencies:**
+```
+项目目录/
+├── api/                    # 后端服务
+│   ├── src/
+│   │   ├── routes/        # 路由处理
+│   │   ├── services/      # 业务逻辑
+│   │   ├── db/           # 数据库相关
+│   │   └── utils/        # 工具函数
+│   └── package.json
+│
+├── web/                   # 前端应用
+│   ├── src/
+│   │   ├── components/   # 组件
+│   │   ├── pages/       # 页面
+│   │   ├── services/    # API服务
+│   │   └── utils/       # 工具函数
+│   └── package.json
+```
+
+## 开始使用
+
+### 环境要求
+- Node.js (v14 或更高版本)
+- npm 或 yarn
+
+### 后端服务启动
+
+1. **安装依赖:**
    ```bash
    cd api
    npm install
    ```
-2. **Start the API Server:**
+
+2. **启动API服务器:**
    ```bash
    node src/app.js
    ```
-   The API server will start on [http://localhost:3000](http://localhost:3000).  
-   You can view the API documentation at [http://localhost:3000/documentation](http://localhost:3000/documentation).
+   服务器将在 [http://localhost:3000](http://localhost:3000) 启动
 
-3. **Vocabulary Data Management:**
-   - **Import Data:**
+3. **词汇数据管理:**
+   - **导入数据:**
      ```bash
-     node src/cli.js import path/to/vocabularies.json
+     node src/cli.js import 数据文件路径.json
      ```
-   - **Export Data:**
+   - **导出数据:**
      ```bash
-     node src/cli.js export path/to/output.json
+     node src/cli.js export 导出文件路径.json
      ```
 
-### Frontend Setup
+### 前端应用启动
 
-1. **Install Dependencies:**
+1. **安装依赖:**
    ```bash
    cd web
    npm install
    ```
-2. **Start the Development Server:**
+
+2. **配置环境变量:**
+   创建 `.env` 文件:
+   ```
+   VITE_API_BASE_URL=http://47.121.117.100:3000/api
+   ```
+
+3. **启动开发服务器:**
    ```bash
    npm run dev
    ```
-   The web client will run at [http://127.0.0.1:5173](http://127.0.0.1:5173).
 
-## Features
+## API 接口说明
 
-- **Vocabulary Management:** Create, update, and delete vocabularies with integrated import/export functionality.
-- **Spaced Repetition:** Built-in scheduling for daily new words and review sessions based on configurable intervals.
-- **Interactive Quizzes:** Multiple-choice questions to test vocabulary retention.
-- **Learning History:** Detailed tracking of progress, review counts, and correctness for each vocabulary over time.
+### 词汇管理接口
+- 获取词汇列表: `GET /api/vocab`
+- 添加词汇: `POST /api/vocab`
+- 更新词汇: `PUT /api/vocab/:word`
+- 删除词汇: `DELETE /api/vocab/:word`
 
-## Technologies Used
+### 数据结构
+词汇对象结构:
+```typescript
+interface Vocabulary {
+  word: string;          // 单词
+  definitions: Array<{   // 释义列表
+    pos: string;        // 词性
+    meaning: string     // 释义
+  }>;
+  pronunciation?: {      // 发音
+    American?: string;  // 美式音标
+    British?: string;   // 英式音标
+  };
+  memory_method?: string; // 记忆方法/例句
+  mastered: boolean;      // 掌握状态
+  timestamp: string;      // 添加时间
+}
+```
 
-- **Backend:** Fastify, SQLite, Day.js
-- **Frontend:** React, Vite, Zustand, Tailwind CSS, DaisyUI
+## 主要功能说明
 
-## License
+1. **词汇管理**
+   - 支持添加、编辑、删除词汇
+   - 支持批量删除选中词汇
+   - 支持更新词汇掌握状态
 
-This project is licensed under the MIT License.
+2. **搜索和筛选**
+   - 支持按词汇和释义搜索
+   - 支持按掌握状态筛选(全部/已掌握/学习中)
 
-## Contributing
+3. **分页功能**
+   - 每页显示10条记录
+   - 支持页码导航
 
-Contributions are welcome! Please open issues or submit pull requests if you have suggestions or bug fixes.
+4. **例句和记忆方法**
+   - 支持展开/收起显示例句和记忆方法
+   - 支持在添加/编辑时维护例句和记忆方法
+
