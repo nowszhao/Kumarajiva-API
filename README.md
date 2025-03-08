@@ -1,147 +1,80 @@
-# 词汇管理系统
+# Kumarajiva-API
 
-一个简单的词汇管理系统，用于管理和学习英语词汇。
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D14-brightgreen)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## 功能特点
+[English](#introduction) | [中文](#介绍)
 
-- 词汇的增删改查
-- 词汇列表展示
-- 词汇搜索和筛选
-- 分页功能
-- 批量删除
-- 掌握状态管理
-- 例句/记忆方法展示
-- 响应式设计
+## 介绍
 
-## 技术栈
+Kumarajiva-API 是 [Kumarajiva](https://github.com/nowszhao/Kumarajiva) 和 [Kumarajiva-iOS](https://github.com/nowszhao/Kumarajiva-iOS) 的后端云服务，提供智能生词管理和科学的间隔学习功能，帮助用户更高效地学习和记忆。
 
-### 前端
-- React 18
-- Vite
-- Tailwind CSS
-- DaisyUI
-- Axios
-- React Hot Toast
-- Heroicons
+## Introduction
 
-### 后端
-- Fastify
-- SQLite3
-- Node.js
+Kumarajiva-API is the backend cloud service for [Kumarajiva](https://github.com/nowszhao/Kumarajiva) and [Kumarajiva-iOS](https://github.com/nowszhao/Kumarajiva-iOS), providing intelligent vocabulary management and spaced repetition learning features to help users learn and memorize more effectively.
 
-## 项目结构
+## 技术栈 | Tech Stack
 
-```
-项目目录/
-├── api/                    # 后端服务
-│   ├── src/
-│   │   ├── routes/        # 路由处理
-│   │   ├── services/      # 业务逻辑
-│   │   ├── db/           # 数据库相关
-│   │   └── utils/        # 工具函数
-│   └── package.json
-│
-├── web/                   # 前端应用
-│   ├── src/
-│   │   ├── components/   # 组件
-│   │   ├── pages/       # 页面
-│   │   ├── services/    # API服务
-│   │   └── utils/       # 工具函数
-│   └── package.json
-```
+### 前端 | Frontend
+- ⚛️ React 18 - 用户界面框架
+- ⚡️ Vite - 现代前端构建工具
+- 🎨 Tailwind CSS - 实用优先的 CSS 框架
+- 🎯 DaisyUI - 基于 Tailwind 的组件库
+- 🔄 Axios - HTTP 客户端
+- 🍞 React Hot Toast - 优雅的通知提示
+- ⭐️ Heroicons - 精美的 SVG 图标集
 
-## 开始使用
+### 后端 | Backend
+- ⚡️ Fastify - 高性能 Node.js Web 框架
+- 🗄️ SQLite3 - 轻量级关系型数据库
+- 📦 Node.js - JavaScript 运行时
 
-### 环境要求
-- Node.js (v14 或更高版本)
+## 快速开始 | Quick Start
+
+### 环境要求 | Prerequisites
+- Node.js (v14 或更高版本 | v14 or higher)
 - npm 或 yarn
 
-### 后端服务启动
+### 后端服务 | Backend Service
 
-1. **安装依赖:**
+1. **安装依赖 | Install Dependencies:**
    ```bash
    cd api
    npm install
    ```
 
-2. **启动API服务器:**
+2. **启动服务器 | Start API Server:**
    ```bash
    node src/app.js
    ```
-   服务器将在 [http://localhost:3000](http://localhost:3000) 启动
+   服务器将在 http://localhost:3000 启动
+   Server will start at http://localhost:3000
 
-3. **词汇数据管理:**
-   - **导入数据:**
+3. **词汇数据管理 | Vocabulary Data Management:**
+   - **导入数据 | Import Data:**
      ```bash
-     node src/cli.js import 数据文件路径.json
+     node src/cli.js import <path-to-data.json>
      ```
-   - **导出数据:**
+   - **导出数据 | Export Data:**
      ```bash
-     node src/cli.js export 导出文件路径.json
+     node src/cli.js export <output-path.json>
      ```
 
-### 前端应用启动
+### 前端应用 | Frontend Application
 
-1. **安装依赖:**
+1. **安装依赖 | Install Dependencies:**
    ```bash
    cd web
    npm install
    ```
 
-2. **配置环境变量:**
-   创建 `.env` 文件:
-   ```
-   VITE_API_BASE_URL=http://47.121.117.100:3000/api
+2. **配置环境变量 | Configure Environment:**
+   创建 `.env` 文件 | Create `.env` file:
+   ```env
+   VITE_API_BASE_URL=http://127.0.0.1:3000/api
    ```
 
-3. **启动开发服务器:**
+3. **启动开发服务器 | Start Development Server:**
    ```bash
    npm run dev
    ```
-
-## API 接口说明
-
-### 词汇管理接口
-- 获取词汇列表: `GET /api/vocab`
-- 添加词汇: `POST /api/vocab`
-- 更新词汇: `PUT /api/vocab/:word`
-- 删除词汇: `DELETE /api/vocab/:word`
-
-### 数据结构
-词汇对象结构:
-```typescript
-interface Vocabulary {
-  word: string;          // 单词
-  definitions: Array<{   // 释义列表
-    pos: string;        // 词性
-    meaning: string     // 释义
-  }>;
-  pronunciation?: {      // 发音
-    American?: string;  // 美式音标
-    British?: string;   // 英式音标
-  };
-  memory_method?: string; // 记忆方法/例句
-  mastered: boolean;      // 掌握状态
-  timestamp: string;      // 添加时间
-}
-```
-
-## 主要功能说明
-
-1. **词汇管理**
-   - 支持添加、编辑、删除词汇
-   - 支持批量删除选中词汇
-   - 支持更新词汇掌握状态
-
-2. **搜索和筛选**
-   - 支持按词汇和释义搜索
-   - 支持按掌握状态筛选(全部/已掌握/学习中)
-
-3. **分页功能**
-   - 每页显示10条记录
-   - 支持页码导航
-
-4. **例句和记忆方法**
-   - 支持展开/收起显示例句和记忆方法
-   - 支持在添加/编辑时维护例句和记忆方法
-
