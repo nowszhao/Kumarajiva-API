@@ -13,6 +13,8 @@ export default function VocabularyPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
   const [filterType, setFilterType] = useState('全部');
+  const [sortColumn, setSortColumn] = useState('timestamp');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   useEffect(() => {
     loadVocabularies();
@@ -54,7 +56,19 @@ export default function VocabularyPage() {
     return matchesSearch;
   });
 
-  const paginatedVocabularies = filteredVocabularies.slice(
+  const sortedVocabularies = [...filteredVocabularies].sort((a, b) => {
+    let comparison = 0;
+    if (sortColumn === 'word') {
+      comparison = a.word.localeCompare(b.word);
+    } else if (sortColumn === 'timestamp') {
+      const timestampA = parseInt(a.timestamp, 10);
+      const timestampB = parseInt(b.timestamp, 10);
+      comparison = timestampB - timestampA;
+    }
+    return sortOrder === 'asc' ? comparison : -comparison;
+  });
+
+  const paginatedVocabularies = sortedVocabularies.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
@@ -64,6 +78,15 @@ export default function VocabularyPage() {
   const handleRefresh = () => {
     loadVocabularies();
     toast.success('刷新成功');
+  };
+
+  const handleSort = (column) => {
+    if (column === sortColumn) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortOrder('asc');
+    }
   };
 
   return (
@@ -115,6 +138,9 @@ export default function VocabularyPage() {
             vocabularies={paginatedVocabularies}
             onEdit={handleEdit}
             onDelete={loadVocabularies}
+            sortColumn={sortColumn}
+            sortOrder={sortOrder}
+            onSort={handleSort}
           />
           
           <div className="flex justify-between items-center mt-4">
