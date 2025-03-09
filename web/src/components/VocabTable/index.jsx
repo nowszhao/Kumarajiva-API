@@ -3,9 +3,11 @@ import { PencilIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicon
 import { vocabService } from '../../services/vocab';
 import toast from 'react-hot-toast';
 
-export default function VocabTable({ vocabularies, onEdit, onDelete, onSort, sortConfig }) {
+export default function VocabTable({ vocabularies, onEdit, onDelete }) {
   const [selectedWords, setSelectedWords] = useState(new Set());
   const [expandedWords, setExpandedWords] = useState(new Set());
+  const [sortColumn, setSortColumn] = useState('timestamp');
+  const [sortOrder, setSortOrder] = useState('desc');
   
   // 处理全选
   const handleSelectAll = (e) => {
@@ -85,6 +87,27 @@ export default function VocabTable({ vocabularies, onEdit, onDelete, onSort, sor
     }
   };
 
+  const sortedVocabularies = [...vocabularies].sort((a, b) => {
+    let comparison = 0;
+    if (sortColumn === 'word') {
+      comparison = a.word.localeCompare(b.word);
+    } else if (sortColumn === 'timestamp') {
+      const dateA = new Date(a.timestamp);
+      const dateB = new Date(b.timestamp);
+      comparison = dateA - dateB;
+    }
+    return sortOrder === 'asc' ? comparison : -comparison;
+  });
+
+  const handleSort = (column) => {
+    if (column === sortColumn) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortOrder('asc');
+    }
+  };
+
   return (
     <div>
       {selectedWords.size > 0 && (
@@ -115,26 +138,24 @@ export default function VocabTable({ vocabularies, onEdit, onDelete, onSort, sor
                   />
                 </label>
               </th>
-              <th className="cursor-pointer hover:bg-gray-100" onClick={() => onSort('word')}>
-                生词
-                {sortConfig.key === 'word' && (
-                  sortConfig.direction === 'asc' ? ' ↑' : ' ↓'
-                )}
+              <th>
+                <button className="btn btn-ghost btn-sm" onClick={() => handleSort('word')}>
+                  生词 {sortColumn === 'word' && (sortOrder === 'asc' ? <ChevronUpIcon className="h-4 w-4 inline-block" /> : <ChevronDownIcon className="h-4 w-4 inline-block" />)}
+                </button>
               </th>
               <th>音标</th>
               <th>释义</th>
-              <th className="cursor-pointer hover:bg-gray-100" onClick={() => onSort('timestamp')}>
-                添加时间
-                {sortConfig.key === 'timestamp' && (
-                  sortConfig.direction === 'asc' ? ' ↑' : ' ↓'
-                )}
+              <th>
+                <button className="btn btn-ghost btn-sm" onClick={() => handleSort('timestamp')}>
+                  添加时间 {sortColumn === 'timestamp' && (sortOrder === 'asc' ? <ChevronUpIcon className="h-4 w-4 inline-block" /> : <ChevronDownIcon className="h-4 w-4 inline-block" />)}
+                </button>
               </th>
               <th>掌握状态</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody>
-            {vocabularies.map((vocab) => (
+            {sortedVocabularies.map((vocab) => (
               <React.Fragment key={vocab.word}>
                 <tr>
                   <th>
