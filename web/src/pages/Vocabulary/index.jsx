@@ -13,6 +13,10 @@ export default function VocabularyPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
   const [filterType, setFilterType] = useState('全部');
+  const [sortConfig, setSortConfig] = useState({
+    key: 'timestamp',
+    direction: 'desc'
+  });
 
   useEffect(() => {
     loadVocabularies();
@@ -54,7 +58,19 @@ export default function VocabularyPage() {
     return matchesSearch;
   });
 
-  const paginatedVocabularies = filteredVocabularies.slice(
+  const sortedVocabularies = filteredVocabularies.sort((a, b) => {
+    if (sortConfig.key === 'word') {
+      return a.word.localeCompare(b.word) * (sortConfig.direction === 'asc' ? 1 : -1);
+    }
+    if (sortConfig.key === 'timestamp') {
+      const dateA = new Date(a.timestamp);
+      const dateB = new Date(b.timestamp);
+      return (dateB - dateA) * (sortConfig.direction === 'asc' ? -1 : 1);
+    }
+    return 0;
+  });
+
+  const paginatedVocabularies = sortedVocabularies.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize
   );
@@ -64,6 +80,14 @@ export default function VocabularyPage() {
   const handleRefresh = () => {
     loadVocabularies();
     toast.success('刷新成功');
+  };
+
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key ? (prev.direction === 'asc' ? 'desc' : 'asc') : 'desc'
+    }));
+    setCurrentPage(1);
   };
 
   return (
@@ -115,6 +139,7 @@ export default function VocabularyPage() {
             vocabularies={paginatedVocabularies}
             onEdit={handleEdit}
             onDelete={loadVocabularies}
+            onSort={handleSort}
           />
           
           <div className="flex justify-between items-center mt-4">

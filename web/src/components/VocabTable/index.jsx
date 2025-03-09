@@ -3,7 +3,7 @@ import { PencilIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicon
 import { vocabService } from '../../services/vocab';
 import toast from 'react-hot-toast';
 
-export default function VocabTable({ vocabularies, onEdit, onDelete }) {
+export default function VocabTable({ vocabularies, onEdit, onDelete, onSort, sortConfig }) {
   const [selectedWords, setSelectedWords] = useState(new Set());
   const [expandedWords, setExpandedWords] = useState(new Set());
   
@@ -115,10 +115,20 @@ export default function VocabTable({ vocabularies, onEdit, onDelete }) {
                   />
                 </label>
               </th>
-              <th>生词</th>
+              <th className="cursor-pointer hover:bg-gray-100" onClick={() => onSort('word')}>
+                生词
+                {sortConfig.key === 'word' && (
+                  sortConfig.direction === 'asc' ? ' ↑' : ' ↓'
+                )}
+              </th>
               <th>音标</th>
               <th>释义</th>
-              <th>添加时间</th>
+              <th className="cursor-pointer hover:bg-gray-100" onClick={() => onSort('timestamp')}>
+                添加时间
+                {sortConfig.key === 'timestamp' && (
+                  sortConfig.direction === 'asc' ? ' ↑' : ' ↓'
+                )}
+              </th>
               <th>掌握状态</th>
               <th>操作</th>
             </tr>
