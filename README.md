@@ -28,6 +28,7 @@ Kumarajiva-API is the backend cloud service for [Kumarajiva](https://github.com/
 - ⚡️ Fastify - 高性能 Node.js Web 框架
 - 🗄️ SQLite3 - 轻量级关系型数据库
 - 📦 Node.js - JavaScript 运行时
+- 🤖 LLM API - 大语言模型接口集成
 
 ## 快速开始 | Quick Start
 
@@ -78,3 +79,50 @@ Kumarajiva-API is the backend cloud service for [Kumarajiva](https://github.com/
    ```bash
    npm run dev
    ```
+
+## API 接口示例 | API Examples
+
+### LLM API 接口 | LLM API Endpoints
+
+#### 创建会话 | Create Conversation
+```bash
+curl --location 'http://localhost:3000/api/llm/conversation/create' \
+--header 'Content-Type: application/json' \
+--header 'Cookie: hy_user=youruser; hy_token=yourtoken' \
+--data '{
+  "agentId": "naQivTmsDa"
+}'
+```
+
+响应示例 | Response Example:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "ee1072d9-4d97-4d96-b23c-eab89c47b898"
+  }
+}
+```
+
+#### 发起聊天 | Chat
+```bash
+curl --location 'http://localhost:3000/api/llm/chat/03245ccb-b3c4-4ff6-8c59-5c4e2139e4d5' \
+--header 'Content-Type: application/json' \
+--header 'Cookie: hy_user=youruser; hy_token=yourtoken' \
+--data '{
+  "prompt": "今天有什么新闻？",
+  "agentId": "naQivTmsDa",
+  "model": "gpt_175B_0404"
+}'
+```
+
+响应示例 | Response Example:
+```json
+{
+  "success": true,
+  "data": {
+    "messageId": "03245ccb-b3c4-4ff6-8c59-5c4e2139e4d5_2",
+    "content": "以下是2024年最新的新闻..."
+  }
+}
+```

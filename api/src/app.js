@@ -30,6 +30,7 @@ fastify.register(cors, {
 // 注册路由
 fastify.register(require('./routes/vocab'), { prefix: '/api/vocab' });
 fastify.register(require('./routes/review'), { prefix: '/api/review' });
+fastify.register(require('./routes/llmapi'), { prefix: '/api/llm' });
 
 // 启动服务器
 const start = async () => {
