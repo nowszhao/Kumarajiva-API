@@ -4,9 +4,12 @@ async function routes(fastify, options) {
   // 创建会话
   fastify.post('/conversation/create', async (request, reply) => {
     try {
-      const { agentId } = request.body;
-      const cookie = request.headers.cookie || '';
+      const { agentId, cookie: bodyCookie } = request.body;
+      // 优先使用请求体中的cookie，如果没有则使用请求头中的cookie
+      const cookie = bodyCookie || request.headers.cookie || '';
       
+      console.log('cookie:', cookie, 'agentId:', agentId);
+
       if (!agentId) {
         reply.code(400).send({ success: false, message: 'Agent ID is required' });
         return;
@@ -23,9 +26,13 @@ async function routes(fastify, options) {
   fastify.post('/chat/:conversationId', async (request, reply) => {
     try {
       const { conversationId } = request.params;
-      const { prompt, agentId, model } = request.body;
-      const cookie = request.headers.cookie || '';
+      const { prompt, agentId, model, cookie: bodyCookie } = request.body;
+      // 优先使用请求体中的cookie，如果没有则使用请求头中的cookie
+      const cookie = bodyCookie || request.headers.cookie || '';
       
+
+      console.log('cookie:', cookie, 'agentId:', agentId, 'model:', model);
+
       if (!conversationId) {
         reply.code(400).send({ success: false, message: 'Conversation ID is required' });
         return;

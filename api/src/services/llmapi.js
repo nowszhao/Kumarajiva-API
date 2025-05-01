@@ -7,6 +7,8 @@ class LLMApiService {
    * @returns {Promise<Object>} - 返回创建的会话信息
    */
   async createConversation(agentId, cookie) {
+
+    console.log('##createConversation----cookie:', cookie, 'agentId:', agentId);
     try {
       const response = await axios.post(
         'https://yuanbao.tencent.com/api/user/agent/conversation/create',
@@ -35,6 +37,9 @@ class LLMApiService {
    * @returns {Promise<Object>} - 返回聊天结果
    */
   async chat(conversationId, prompt, agentId, cookie, model = "gpt_175B_0404") {
+
+    console.log('##chat----cookie:', cookie, 'agentId:', agentId);
+
     try {
       const response = await axios.post(
         `https://yuanbao.tencent.com/api/chat/${conversationId}`,

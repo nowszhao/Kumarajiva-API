@@ -85,12 +85,24 @@ Kumarajiva-API is the backend cloud service for [Kumarajiva](https://github.com/
 ### LLM API 接口 | LLM API Endpoints
 
 #### 创建会话 | Create Conversation
+
+**方式一：通过请求头传递Cookie（适用于浏览器环境）**
 ```bash
 curl --location 'http://localhost:3000/api/llm/conversation/create' \
 --header 'Content-Type: application/json' \
 --header 'Cookie: hy_user=youruser; hy_token=yourtoken' \
 --data '{
   "agentId": "naQivTmsDa"
+}'
+```
+
+**方式二：通过请求体传递Cookie（适用于任何客户端，包括Chrome插件）**
+```bash
+curl --location 'http://localhost:3000/api/llm/conversation/create' \
+--header 'Content-Type: application/json' \
+--data '{
+  "agentId": "naQivTmsDa",
+  "cookie": "hy_user=youruser; hy_token=yourtoken"
 }'
 ```
 
@@ -105,6 +117,8 @@ curl --location 'http://localhost:3000/api/llm/conversation/create' \
 ```
 
 #### 发起聊天 | Chat
+
+**方式一：通过请求头传递Cookie（适用于浏览器环境）**
 ```bash
 curl --location 'http://localhost:3000/api/llm/chat/03245ccb-b3c4-4ff6-8c59-5c4e2139e4d5' \
 --header 'Content-Type: application/json' \
@@ -113,6 +127,18 @@ curl --location 'http://localhost:3000/api/llm/chat/03245ccb-b3c4-4ff6-8c59-5c4e
   "prompt": "今天有什么新闻？",
   "agentId": "naQivTmsDa",
   "model": "gpt_175B_0404"
+}'
+```
+
+**方式二：通过请求体传递Cookie（适用于任何客户端，包括Chrome插件）**
+```bash
+curl --location 'http://localhost:3000/api/llm/chat/03245ccb-b3c4-4ff6-8c59-5c4e2139e4d5' \
+--header 'Content-Type: application/json' \
+--data '{
+  "prompt": "今天有什么新闻？",
+  "agentId": "naQivTmsDa",
+  "model": "gpt_175B_0404",
+  "cookie": "hy_user=youruser; hy_token=yourtoken"
 }'
 ```
 
