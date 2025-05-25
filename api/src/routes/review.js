@@ -1,9 +1,22 @@
 const reviewService = require('../services/review');
+const authConfig = require('../config/auth');
 
 async function routes(fastify, options) {
+  // Apply authentication based on legacy mode
+  fastify.addHook('preHandler', async (request, reply) => {
+    if (authConfig.legacyMode) {
+      // Optional authentication for backward compatibility
+      await fastify.auth.optionalAuth(request, reply);
+    } else {
+      // Required authentication in strict mode
+      await fastify.auth.authenticate(request, reply);
+    }
+  });
+
   // 获取今日需要复习的词汇
   fastify.get('/today', async (request, reply) => {
-    const words = await reviewService.getTodayReviewWords();
+    const userId = request.user?.id;
+    const words = await reviewService.getTodayReviewWords(userId);
     return { success: true, data: words };
   });
 
@@ -17,7 +30,8 @@ async function routes(fastify, options) {
         return;
       }
       
-      const quiz = await reviewService.generateQuiz(word);
+      const userId = request.user?.id;
+      const quiz = await reviewService.generateQuiz(word, userId);
       return { success: true, data: quiz };
     } catch (error) {
       reply.code(404).send({ success: false, message: error.message });
@@ -27,7 +41,8 @@ async function routes(fastify, options) {
   // 提交复习结果
   fastify.post('/record', async (request, reply) => {
     const { word, result } = request.body;
-    const record = await reviewService.recordReview(word, result);
+    const userId = request.user?.id;
+    const record = await reviewService.recordReview(word, result, userId);
     return { success: true, data: record };
   });
 
@@ -38,6 +53,8 @@ async function routes(fastify, options) {
         startDate,
         endDate,
         wordType,
+        word,
+        result,
         limit,
         offset
       } = request.query;
@@ -46,12 +63,15 @@ async function routes(fastify, options) {
         startDate,
         endDate,
         wordType,
+        word,
+        result: result !== undefined ? result === 'true' : undefined,
         limit: parseInt(limit) || 100,
         offset: parseInt(offset) || 0
       };
 
-      const history = await reviewService.getLearningHistory(filters);
-      reply.send({ success: true, ...history });
+      const userId = request.user?.id;
+      const history = await reviewService.getLearningHistory(filters, userId);
+      reply.send({ success: true, data: history });
     } catch (error) {
       reply.status(500).send({ 
         success: false, 
@@ -63,7 +83,8 @@ async function routes(fastify, options) {
   // 获取今日进度
   fastify.get('/progress', async (request, reply) => {
     try {
-      const progress = await reviewService.getTodayProgress();
+      const userId = request.user?.id;
+      const progress = await reviewService.getTodayProgress(userId);
       reply.send({ success: true, data: progress });
     } catch (error) {
       reply.status(500).send({ success: false, error: error.message });
@@ -73,7 +94,8 @@ async function routes(fastify, options) {
   // 更新进度
   fastify.post('/progress', async (request, reply) => {
     try {
-      await reviewService.updateProgress(request.body);
+      const userId = request.user?.id;
+      await reviewService.updateProgress(request.body, userId);
       reply.send({ success: true });
     } catch (error) {
       reply.status(500).send({ success: false, error: error.message });
@@ -83,8 +105,9 @@ async function routes(fastify, options) {
   // 添加重置进度的路由
   fastify.post('/reset', async (request, reply) => {
     try {
-      await reviewService.resetTodayProgress();
-      const progress = await reviewService.getTodayProgress();
+      const userId = request.user?.id;
+      await reviewService.resetTodayProgress(userId);
+      const progress = await reviewService.getTodayProgress(userId);
       reply.send({ success: true, data: progress });
     } catch (error) {
       reply.status(500).send({ success: false, error: error.message });
@@ -94,7 +117,8 @@ async function routes(fastify, options) {
   // 获取当前实时数据统计
   fastify.get('/stats', async (request, reply) => {
     try {
-      const stats = await reviewService.getCurrentStats();
+      const userId = request.user?.id;
+      const stats = await reviewService.getCurrentStats(userId);
       reply.send({ success: true, data: stats });
     } catch (error) {
       reply.status(500).send({ success: false, error: error.message });

@@ -1,21 +1,35 @@
 {
   "name": "kumarajiva-api",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "src/app.js",
   "scripts": {
+    "start": "node src/app.js",
+    "dev": "node src/app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "vocabulary",
+    "learning",
+    "api",
+    "spaced-repetition"
+  ],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "A backend cloud service for vocabulary management and spaced repetition learning with multi-user support",
   "dependencies": {
+    "@fastify/cookie": "^10.0.1",
     "@fastify/cors": "^10.0.2",
+    "@fastify/oauth2": "^8.1.0",
+    "@fastify/session": "^11.0.1",
     "@fastify/swagger": "^9.4.2",
     "@fastify/swagger-ui": "^5.2.1",
     "axios": "^1.9.0",
+    "bcrypt": "^6.0.0",
     "dayjs": "^1.11.13",
+    "dotenv": "^16.5.0",
     "fastify": "^5.2.1",
-    "sqlite3": "^5.1.7"
+    "jsonwebtoken": "^9.0.2",
+    "sqlite3": "^5.1.7",
+    "uuid": "^10.0.0"
   }
 }

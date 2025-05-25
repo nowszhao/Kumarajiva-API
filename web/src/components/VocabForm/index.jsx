@@ -3,15 +3,58 @@ import { XMarkIcon } from '@heroicons/react/24/outline';
 import { vocabService } from '../../services/vocab';
 import toast from 'react-hot-toast';
 
+// Helper function to safely parse definitions
+const safeParseDefinitions = (definitions) => {
+  if (!definitions) return [{ pos: 'n.', meaning: '' }];
+  
+  if (typeof definitions === 'string') {
+    try {
+      const parsed = JSON.parse(definitions);
+      return Array.isArray(parsed) ? parsed : [{ pos: 'n.', meaning: parsed }];
+    } catch (error) {
+      return [{ pos: 'n.', meaning: definitions }];
+    }
+  }
+  
+  if (Array.isArray(definitions)) {
+    return definitions.length > 0 ? definitions : [{ pos: 'n.', meaning: '' }];
+  }
+  
+  return [{ pos: 'n.', meaning: '' }];
+};
+
+// Helper function to safely parse pronunciation
+const safeParsePronunciation = (pronunciation) => {
+  if (!pronunciation) return { American: '', British: '' };
+  
+  if (typeof pronunciation === 'string') {
+    try {
+      const parsed = JSON.parse(pronunciation);
+      return {
+        American: parsed.American || '',
+        British: parsed.British || ''
+      };
+    } catch (error) {
+      return { American: pronunciation, British: '' };
+    }
+  }
+  
+  if (typeof pronunciation === 'object') {
+    return {
+      American: pronunciation.American || '',
+      British: pronunciation.British || ''
+    };
+  }
+  
+  return { American: '', British: '' };
+};
+
 export default function VocabForm({ vocabulary = null, onClose, onSubmit }) {
   const [formData, setFormData] = useState({
     word: vocabulary?.word || '',
-    definitions: vocabulary?.definitions || [{ pos: 'n.', meaning: '' }],
+    definitions: safeParseDefinitions(vocabulary?.definitions),
     memory_method: vocabulary?.memory_method || '',
-    pronunciation: vocabulary?.pronunciation || {
-      American: '',
-      British: ''
-    }
+    pronunciation: safeParsePronunciation(vocabulary?.pronunciation)
   });
 
   const handleSubmit = async (e) => {

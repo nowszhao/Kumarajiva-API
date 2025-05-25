@@ -3,6 +3,58 @@ import { PencilIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon } from '@heroicon
 import { vocabService } from '../../services/vocab';
 import toast from 'react-hot-toast';
 
+// Helper function to safely render definitions
+const renderDefinitions = (definitions) => {
+  if (!definitions) return <span className="text-gray-400">No definitions</span>;
+  
+  // Handle case where definitions is a string
+  if (typeof definitions === 'string') {
+    try {
+      const parsed = JSON.parse(definitions);
+      return renderDefinitions(parsed);
+    } catch (error) {
+      return <span className="text-gray-400">{definitions}</span>;
+    }
+  }
+  
+  // Handle case where definitions is not an array
+  if (!Array.isArray(definitions)) {
+    return <span className="text-gray-400">Invalid definitions format</span>;
+  }
+  
+  // Handle empty array
+  if (definitions.length === 0) {
+    return <span className="text-gray-400">No definitions</span>;
+  }
+  
+  // Render definitions array
+  return definitions.map((def, index) => (
+    <div key={index}>
+      <span className="text-gray-500">[{def.pos || 'n.'}]</span> {def.meaning || def}
+    </div>
+  ));
+};
+
+// Helper function to safely get pronunciation
+const getPronunciation = (pronunciation) => {
+  if (!pronunciation) return '';
+  
+  if (typeof pronunciation === 'string') {
+    try {
+      const parsed = JSON.parse(pronunciation);
+      return parsed.American || parsed.British || '';
+    } catch (error) {
+      return pronunciation;
+    }
+  }
+  
+  if (typeof pronunciation === 'object') {
+    return pronunciation.American || pronunciation.British || '';
+  }
+  
+  return '';
+};
+
 export default function VocabTable({ vocabularies, onEdit, onDelete, sortColumn, sortOrder, onSort }) {
   const [selectedWords, setSelectedWords] = useState(new Set());
   const [expandedWords, setExpandedWords] = useState(new Set());
@@ -160,13 +212,9 @@ export default function VocabTable({ vocabularies, onEdit, onDelete, sortColumn,
                       </button>
                     </div>
                   </td>
-                  <td>{vocab.pronunciation?.American || ''}</td>
+                  <td>{getPronunciation(vocab.pronunciation)}</td>
                   <td>
-                    {vocab.definitions.map((def, index) => (
-                      <div key={index}>
-                        <span className="text-gray-500">[{def.pos}]</span> {def.meaning}
-                      </div>
-                    ))}
+                    {renderDefinitions(vocab.definitions)}
                   </td>
                   <td>{new Date(vocab.timestamp).toLocaleString()}</td>
                   <td>
