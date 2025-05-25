@@ -513,23 +513,19 @@ class ReviewService {
       if (wordType && wordType !== 'all') {
         switch(wordType) {
           case 'new':
-            // 新词：从未学习过的词汇
-            conditions.push('review_stats.word IS NULL');
-            conditions.push('v.mastered = 0');
+            conditions.push('review_stats.review_count = 1');
             break;
           case 'reviewing':
-            // 复习中：学习过但未掌握的词汇
-            conditions.push('review_stats.review_count > 0');
-            conditions.push('v.mastered = 0');
+            conditions.push('review_stats.review_count > 1 AND v.mastered = 0');
             break;
           case 'mastered':
-            // 已掌握：mastered = 1的词汇
             conditions.push('v.mastered = 1');
             break;
           case 'wrong':
-            // 错误较多：正确率低于100%且未掌握的词汇
-            conditions.push('review_stats.correct_count < review_stats.review_count');
-            conditions.push('v.mastered = 0');
+            conditions.push(`
+              review_stats.correct_count < review_stats.review_count 
+              AND v.mastered = 0
+            `);
             break;
         }
       }
