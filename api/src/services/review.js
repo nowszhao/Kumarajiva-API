@@ -14,7 +14,7 @@ class ReviewService {
   // Helper method to build user-aware SQL queries
   _buildUserClause(userId) {
     if (authConfig.legacyMode && !userId) {
-      return 'user_id IS NULL';
+      return '1=1'; // 在legacy模式下忽略用户限制
     }
     return userId ? 'user_id = ?' : 'user_id IS NULL';
   }
@@ -78,7 +78,7 @@ class ReviewService {
     return new Promise((resolve, reject) => {
       const userClause = this._buildUserClause(userId);
       const userParams = this._getUserParams(userId);
-      const params = [...userParams, ...userParams, ...userParams, ...userParams, config.dailyReviewLimit - config.dailyNewWords];
+      const params = [...userParams, ...userParams, ...userParams, config.dailyReviewLimit - config.dailyNewWords];
       
       const sql = `
         WITH review_stats AS (
@@ -218,7 +218,8 @@ class ReviewService {
     const today = dayjs().tz().format('YYYY-MM-DD');
     return new Promise((resolve, reject) => {
       const userClause = this._buildUserClause(userId);
-      const params = [today, ...this._getUserParams(userId)];
+      const userParams = this._getUserParams(userId);
+      const params = [today, ...userParams];
       
       db.get(
         `SELECT * FROM learning_progress WHERE date = ? AND ${userClause}`,
@@ -244,14 +245,19 @@ class ReviewService {
                   reject(err);
                   return;
                 }
-                resolve({
-                  date: today,
-                  current_word_index: 0,
-                  total_words: todayWords.length,
-                  completed: 0,
-                  correct: 0,
-                  user_id: userId
-                });
+                // 获取刚创建的记录，包含数据库生成的 id
+                const selectParams = [today, ...userParams];
+                db.get(
+                  `SELECT * FROM learning_progress WHERE date = ? AND ${userClause}`,
+                  selectParams,
+                  (err, newRow) => {
+                    if (err) {
+                      reject(err);
+                      return;
+                    }
+                    resolve(newRow);
+                  }
+                );
               }
             );
           }
@@ -338,7 +344,7 @@ class ReviewService {
     }
 
     // 获取其他词汇作为干扰项
-      const distractorParams = [word, ...this._getUserParams(userId)];
+    const distractorParams = [word, ...this._getUserParams(userId)];
     const otherWords = await new Promise((resolve, reject) => {
       db.all(
         `SELECT * FROM vocabularies 
@@ -353,28 +359,72 @@ class ReviewService {
       );
     });
 
-    const targetDefs = JSON.parse(vocab.definitions);
-    const options = otherWords.map(w => ({
-      word: w.word,
-      definition: JSON.parse(w.definitions)[0].meaning,
-      pos: JSON.parse(w.definitions)[0].pos
-    }));
+    // 安全地解析 definitions，确保总是返回数组
+    let targetDefs;
+    try {
+      const parsed = JSON.parse(vocab.definitions);
+      // 如果解析结果是字符串，转换为数组格式
+      if (typeof parsed === 'string') {
+        targetDefs = [{ meaning: parsed, pos: '' }];
+      } else if (Array.isArray(parsed)) {
+        targetDefs = parsed;
+      } else {
+        targetDefs = [{ meaning: vocab.definitions, pos: '' }];
+      }
+    } catch (error) {
+      // 如果JSON解析失败，将原始字符串作为单个定义
+      targetDefs = [{ meaning: vocab.definitions, pos: '' }];
+    }
+    
+    console.log("Final targetDefs:", targetDefs);
+    console.log("Is targetDefs array:", Array.isArray(targetDefs));
+
+    const options = otherWords.map(w => {
+      let otherDefs;
+      try {
+        const parsed = JSON.parse(w.definitions);
+        if (typeof parsed === 'string') {
+          otherDefs = [{ meaning: parsed, pos: '' }];
+        } else if (Array.isArray(parsed)) {
+          otherDefs = parsed;
+        } else {
+          otherDefs = [{ meaning: w.definitions, pos: '' }];
+        }
+      } catch (error) {
+        otherDefs = [{ meaning: w.definitions, pos: '' }];
+      }
+      
+      return {
+        word: w.word,
+        definition: otherDefs[0].meaning,
+        pos: otherDefs[0].pos || ''
+      };
+    });
 
     // 添加正确答案
     options.push({
       word: vocab.word,
       definition: targetDefs[0].meaning,
-      pos: targetDefs[0].pos
+      pos: targetDefs[0].pos || ''
     });
 
     // 打乱选项顺序
     const shuffledOptions = options.sort(() => Math.random() - 0.5);
 
+    // 安全地解析 pronunciation
+    let phonetic = null;
+    try {
+      const pronunciation = JSON.parse(vocab.pronunciation);
+      phonetic = pronunciation.American || pronunciation.american || null;
+    } catch (error) {
+      phonetic = null;
+    }
+
     return {
       word: vocab.word,
-      phonetic: JSON.parse(vocab.pronunciation).American || null,
+      phonetic: phonetic,
       audio: vocab.audio_url || null,
-      definitions: targetDefs || [],
+      definitions: targetDefs, // 确保这里总是返回数组
       examples: JSON.parse(vocab.examples || '[]'),
       memory_method: vocab.memory_method || '',
       correct_answer: targetDefs[0].meaning,
