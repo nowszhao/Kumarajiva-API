@@ -414,10 +414,40 @@ class ReviewService {
     // 安全地解析 pronunciation
     let phonetic = null;
     try {
-      const pronunciation = JSON.parse(vocab.pronunciation);
-      phonetic = pronunciation.American || pronunciation.american || null;
+      let pronunciation;
+      
+      // Check if it's already an object
+      if (typeof vocab.pronunciation === 'object' && vocab.pronunciation !== null) {
+        pronunciation = vocab.pronunciation;
+      } else if (typeof vocab.pronunciation === 'string') {
+        // Try to parse as JSON
+        pronunciation = JSON.parse(vocab.pronunciation);
+        
+        // Check if we got a string back (double encoded JSON)
+        if (typeof pronunciation === 'string') {
+          pronunciation = JSON.parse(pronunciation);
+        }
+      } else {
+        pronunciation = {};
+      }
+      
+      // Check each pronunciation field and use the first non-empty one
+      if (pronunciation.American && pronunciation.American.trim()) {
+        phonetic = pronunciation.American.trim();
+      } else if (pronunciation.american && pronunciation.american.trim()) {
+        phonetic = pronunciation.american.trim();
+      } else if (pronunciation.British && pronunciation.British.trim()) {
+        phonetic = pronunciation.British.trim();
+      } else if (pronunciation.british && pronunciation.british.trim()) {
+        phonetic = pronunciation.british.trim();
+      }
     } catch (error) {
-      phonetic = null;
+      // If parsing fails and it's a string, use it directly
+      if (typeof vocab.pronunciation === 'string' && vocab.pronunciation.trim()) {
+        phonetic = vocab.pronunciation.trim();
+      } else {
+        phonetic = null;
+      }
     }
 
     return {
