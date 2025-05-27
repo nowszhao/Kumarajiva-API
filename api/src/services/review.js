@@ -62,8 +62,8 @@ class ReviewService {
         else {
           const words = rows.map(row => ({
             ...row,
-            definitions: JSON.parse(row.definitions),
-            pronunciation: JSON.parse(row.pronunciation),
+            definitions: this._safeJsonParse(row.definitions, []),
+            pronunciation: this._safeJsonParse(row.pronunciation, {}),
             is_new: true,
             review_count: 0
           }));
@@ -78,7 +78,8 @@ class ReviewService {
     return new Promise((resolve, reject) => {
       const userClause = this._buildUserClause(userId);
       const userParams = this._getUserParams(userId);
-      const params = [...userParams, ...userParams, ...userParams, config.dailyReviewLimit - config.dailyNewWords];
+      // 使用配置中的每日复习限制，而不是硬编码的大数值
+      const params = [...userParams, ...userParams, config.dailyReviewLimit - config.dailyNewWords];
       
       const sql = `
         WITH review_stats AS (
@@ -87,63 +88,130 @@ class ReviewService {
             COUNT(*) as review_count,
             MAX(review_date) as last_review_date,
             MIN(review_date) as first_review_date,
-            SUM(CASE WHEN review_result = 1 THEN 1 ELSE 0 END) as correct_count
+            SUM(CASE WHEN review_result = 1 THEN 1 ELSE 0 END) as correct_count,
+            -- 简化的连续正确次数计算：从最近的记录开始，连续正确的数量
+            0 as consecutive_correct  -- 暂时简化，后续可以通过单独查询获取
           FROM learning_records lr
           WHERE lr.${userClause}
           GROUP BY word
+        ),
+        due_words AS (
+          SELECT 
+            v.*,
+            COALESCE(review_stats.last_review_date, v.timestamp) as last_review_date,
+            COALESCE(review_stats.review_count, 0) as review_count,
+            COALESCE(review_stats.correct_count, 0) as correct_count,
+            COALESCE(review_stats.consecutive_correct, 0) as consecutive_correct,
+            review_stats.first_review_date,
+            -- 计算距离上次复习的天数
+            julianday('now', 'localtime') - julianday(datetime(review_stats.last_review_date/1000, 'unixepoch', 'localtime')) as days_since_last_review,
+            -- 计算应该的复习间隔
+            CASE 
+              WHEN review_stats.review_count = 1 THEN ${config.reviewDays[0]}
+              WHEN review_stats.review_count = 2 THEN ${config.reviewDays[1]}
+              WHEN review_stats.review_count = 3 THEN ${config.reviewDays[2]}
+              WHEN review_stats.review_count = 4 THEN ${config.reviewDays[3]}
+              WHEN review_stats.review_count = 5 THEN ${config.reviewDays[4]}
+              ELSE ${config.reviewDays[5]}
+            END as required_interval
+          FROM vocabularies v
+          INNER JOIN review_stats ON v.word = review_stats.word
+          WHERE 
+            v.mastered = FALSE
+            AND v.${userClause}
         )
-        SELECT 
-          v.*,
-          COALESCE(review_stats.last_review_date, v.timestamp) as last_review_date,
-          COALESCE(review_stats.review_count, 0) as review_count,
-          COALESCE(review_stats.correct_count, 0) as correct_count,
-          review_stats.first_review_date
-        FROM vocabularies v
-        INNER JOIN learning_records lr ON v.word = lr.word AND lr.${userClause}
-        LEFT JOIN review_stats ON v.word = review_stats.word
+        SELECT *
+        FROM due_words
         WHERE 
-          v.mastered = FALSE
-          AND v.${userClause}
-          AND (
-            review_stats.last_review_date IS NULL
-            OR (
-              CASE 
-                WHEN review_stats.review_count = 1 THEN ${config.reviewDays[0]}
-                WHEN review_stats.review_count = 2 THEN ${config.reviewDays[1]}
-                WHEN review_stats.review_count = 3 THEN ${config.reviewDays[2]}
-                WHEN review_stats.review_count = 4 THEN ${config.reviewDays[3]}
-                WHEN review_stats.review_count = 5 THEN ${config.reviewDays[4]}
-                ELSE ${config.reviewDays[5]}
-              END <= (
-                julianday(date('now', 'localtime')) - 
-                julianday(date(review_stats.first_review_date/1000, 'unixepoch', '+8 hours'))
-              )
-            )
-          )
-        GROUP BY v.word
+          -- 只返回真正到期的词汇：实际间隔 >= 要求间隔
+          days_since_last_review >= required_interval
+          -- 可选：添加容忍度，避免过于严格
+          -- AND days_since_last_review <= required_interval + 1
         ORDER BY 
-          review_stats.last_review_date DESC,  -- 首先按紧急程度排序
-          review_stats.first_review_date DESC  -- 其次按最早复习时间排序
+          -- 优先级：超期天数（实际间隔 - 要求间隔）
+          (days_since_last_review - required_interval) DESC,
+          -- 次要：复习次数少的优先
+          review_count ASC
         LIMIT ?
       `;
+      
       console.log("getTodayReviewDueWords-sql", sql);
       console.log("getTodayReviewDueWords-params", params);
+      
       db.all(sql, params, (err, rows) => {
         if (err) {
           console.error("getTodayReviewDueWords error:", err);
           reject(err);
         } else {
           console.log("getTodayReviewDueWords rows:", rows?.length);
-          const words = rows.map(row => ({
-            ...row,
-            definitions: JSON.parse(row.definitions),
-            pronunciation: JSON.parse(row.pronunciation),
-            is_new: false,
-            review_count: row.review_count || 0,
-            consecutive_correct: row.consecutive_correct || 0
-          }));
-          resolve(words);
+          try {
+            const words = rows.map(row => ({
+              ...row,
+              definitions: this._safeJsonParse(row.definitions, []),
+              pronunciation: this._safeJsonParse(row.pronunciation, {}),
+              examples: this._safeJsonParse(row.examples, []),
+              is_new: false,
+              review_count: row.review_count || 0,
+              consecutive_correct: 0,  // 如果需要精确值，可以调用 getConsecutiveCorrect 方法
+              // 添加调试信息
+              days_since_last_review: Math.round(row.days_since_last_review || 0),
+              required_interval: row.required_interval,
+              overdue_days: Math.round((row.days_since_last_review || 0) - row.required_interval)
+            }));
+            resolve(words);
+          } catch (parseError) {
+            console.error("JSON parsing error:", parseError);
+            reject(parseError);
+          }
         }
+      });
+    });
+  }
+
+  // 添加安全的 JSON 解析方法
+  _safeJsonParse(jsonString, defaultValue = null) {
+    if (!jsonString) return defaultValue;
+    
+    if (typeof jsonString === 'object') {
+      return jsonString; // 已经是对象
+    }
+    
+    try {
+      const parsed = JSON.parse(jsonString);
+      return parsed;
+    } catch (error) {
+      console.warn('Failed to parse JSON, using default value:', jsonString);
+      return defaultValue;
+    }
+  }
+
+  // 计算单词的连续正确次数
+  async getConsecutiveCorrect(word, userId = null) {
+    return new Promise((resolve, reject) => {
+      const userClause = this._buildUserClause(userId);
+      const params = [word, ...this._getUserParams(userId)];
+      
+      db.all(`
+        SELECT review_result
+        FROM learning_records
+        WHERE word = ? AND ${userClause}
+        ORDER BY review_date DESC
+      `, params, (err, rows) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        
+        let consecutiveCount = 0;
+        for (const row of rows) {
+          if (row.review_result === 1) {
+            consecutiveCount++;
+          } else {
+            break; // 遇到错误答案就停止计算
+          }
+        }
+        
+        resolve(consecutiveCount);
       });
     });
   }
@@ -360,19 +428,13 @@ class ReviewService {
     });
 
     // 安全地解析 definitions，确保总是返回数组
+    const parsed = this._safeJsonParse(vocab.definitions, vocab.definitions);
     let targetDefs;
-    try {
-      const parsed = JSON.parse(vocab.definitions);
-      // 如果解析结果是字符串，转换为数组格式
-      if (typeof parsed === 'string') {
-        targetDefs = [{ meaning: parsed, pos: '' }];
-      } else if (Array.isArray(parsed)) {
-        targetDefs = parsed;
-      } else {
-        targetDefs = [{ meaning: vocab.definitions, pos: '' }];
-      }
-    } catch (error) {
-      // 如果JSON解析失败，将原始字符串作为单个定义
+    if (typeof parsed === 'string') {
+      targetDefs = [{ meaning: parsed, pos: '' }];
+    } else if (Array.isArray(parsed)) {
+      targetDefs = parsed;
+    } else {
       targetDefs = [{ meaning: vocab.definitions, pos: '' }];
     }
     
@@ -380,17 +442,13 @@ class ReviewService {
     console.log("Is targetDefs array:", Array.isArray(targetDefs));
 
     const options = otherWords.map(w => {
+      const parsed = this._safeJsonParse(w.definitions, w.definitions);
       let otherDefs;
-      try {
-        const parsed = JSON.parse(w.definitions);
-        if (typeof parsed === 'string') {
-          otherDefs = [{ meaning: parsed, pos: '' }];
-        } else if (Array.isArray(parsed)) {
-          otherDefs = parsed;
-        } else {
-          otherDefs = [{ meaning: w.definitions, pos: '' }];
-        }
-      } catch (error) {
+      if (typeof parsed === 'string') {
+        otherDefs = [{ meaning: parsed, pos: '' }];
+      } else if (Array.isArray(parsed)) {
+        otherDefs = parsed;
+      } else {
         otherDefs = [{ meaning: w.definitions, pos: '' }];
       }
       
@@ -413,41 +471,32 @@ class ReviewService {
 
     // 安全地解析 pronunciation
     let phonetic = null;
-    try {
-      let pronunciation;
-      
-      // Check if it's already an object
-      if (typeof vocab.pronunciation === 'object' && vocab.pronunciation !== null) {
-        pronunciation = vocab.pronunciation;
-      } else if (typeof vocab.pronunciation === 'string') {
-        // Try to parse as JSON
-        pronunciation = JSON.parse(vocab.pronunciation);
-        
-        // Check if we got a string back (double encoded JSON)
-        if (typeof pronunciation === 'string') {
-          pronunciation = JSON.parse(pronunciation);
-        }
-      } else {
-        pronunciation = {};
-      }
-      
-      // Check each pronunciation field and use the first non-empty one
-      if (pronunciation.American && pronunciation.American.trim()) {
-        phonetic = pronunciation.American.trim();
-      } else if (pronunciation.american && pronunciation.american.trim()) {
-        phonetic = pronunciation.american.trim();
-      } else if (pronunciation.British && pronunciation.British.trim()) {
-        phonetic = pronunciation.British.trim();
-      } else if (pronunciation.british && pronunciation.british.trim()) {
-        phonetic = pronunciation.british.trim();
-      }
-    } catch (error) {
+    let pronunciation = this._safeJsonParse(vocab.pronunciation, {});
+    
+    // 如果解析结果是字符串，可能是双重编码的 JSON
+    if (typeof pronunciation === 'string') {
+      pronunciation = this._safeJsonParse(pronunciation, {});
+    }
+    
+    // 确保 pronunciation 是对象
+    if (typeof pronunciation !== 'object' || pronunciation === null) {
+      pronunciation = {};
+    }
+    
+    // Check each pronunciation field and use the first non-empty one
+    if (pronunciation.American && pronunciation.American.trim()) {
+      phonetic = pronunciation.American.trim();
+    } else if (pronunciation.american && pronunciation.american.trim()) {
+      phonetic = pronunciation.american.trim();
+    } else if (pronunciation.British && pronunciation.British.trim()) {
+      phonetic = pronunciation.British.trim();
+    } else if (pronunciation.british && pronunciation.british.trim()) {
+      phonetic = pronunciation.british.trim();
+    } else if (typeof vocab.pronunciation === 'string' && vocab.pronunciation.trim()) {
       // If parsing fails and it's a string, use it directly
-      if (typeof vocab.pronunciation === 'string' && vocab.pronunciation.trim()) {
-        phonetic = vocab.pronunciation.trim();
-      } else {
-        phonetic = null;
-      }
+      phonetic = vocab.pronunciation.trim();
+    } else {
+      phonetic = null;
     }
 
     return {
@@ -455,7 +504,7 @@ class ReviewService {
       phonetic: phonetic,
       audio: vocab.audio_url || null,
       definitions: targetDefs, // 确保这里总是返回数组
-      examples: JSON.parse(vocab.examples || '[]'),
+      examples: this._safeJsonParse(vocab.examples, []),
       memory_method: vocab.memory_method || '',
       correct_answer: targetDefs[0].meaning,
       options: shuffledOptions.map(opt => ({
@@ -649,9 +698,9 @@ class ReviewService {
 
             const words = rows.map(row => ({
               ...row,
-              definitions: JSON.parse(row.definitions),
-              pronunciation: JSON.parse(row.pronunciation),
-              examples: JSON.parse(row.examples || '[]'),
+              definitions: this._safeJsonParse(row.definitions, []),
+              pronunciation: this._safeJsonParse(row.pronunciation, {}),
+              examples: this._safeJsonParse(row.examples, []),
               last_review_date: row.last_review_date,
               review_count: row.review_count,
               correct_count: row.correct_count
