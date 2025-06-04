@@ -114,6 +114,40 @@ async function routes(fastify, options) {
     }
   });
 
+  // 获取特定单词的学习记录
+  fastify.get('/word-history/:word', async (request, reply) => {
+    try {
+      const { word } = request.params;
+      if (!word) {
+        reply.code(400).send({ success: false, message: 'Word is required' });
+        return;
+      }
+      
+      const userId = request.user?.id;
+      const history = await reviewService.getWordLearningHistory(word, userId);
+      reply.send({ success: true, data: history });
+    } catch (error) {
+      reply.status(500).send({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  });
+
+  // 获取用户贡献图信息
+  fastify.get('/contribution', async (request, reply) => {
+    try {
+      const userId = request.user?.id;
+      const contribution = await reviewService.getUserContribution(userId);
+      reply.send({ success: true, data: contribution });
+    } catch (error) {
+      reply.status(500).send({ 
+        success: false, 
+        error: error.message 
+      });
+    }
+  });
+
   // 获取当前实时数据统计
   fastify.get('/stats', async (request, reply) => {
     try {

@@ -62,7 +62,7 @@ class ReviewService {
         else {
           const words = rows.map(row => ({
             ...row,
-            definitions: this._safeJsonParse(row.definitions, []),
+            definitions: this._parseDefinitions(row.definitions),
             pronunciation: this._safeJsonParse(row.pronunciation, {}),
             is_new: true,
             review_count: 0
@@ -147,7 +147,7 @@ class ReviewService {
           try {
             const words = rows.map(row => ({
               ...row,
-              definitions: this._safeJsonParse(row.definitions, []),
+              definitions: this._parseDefinitions(row.definitions),
               pronunciation: this._safeJsonParse(row.pronunciation, {}),
               examples: this._safeJsonParse(row.examples, []),
               is_new: false,
@@ -183,6 +183,43 @@ class ReviewService {
       console.warn('Failed to parse JSON, using default value:', jsonString);
       return defaultValue;
     }
+  }
+
+  // 专门处理双重 JSON 编码的 definitions 字段
+  _parseDefinitions(definitionsString) {
+    if (!definitionsString) return [];
+    
+    // 如果已经是数组，直接返回
+    if (Array.isArray(definitionsString)) {
+      return definitionsString;
+    }
+    
+    try {
+      // 第一次解析：处理外层的 JSON 字符串
+      let firstParse = JSON.parse(definitionsString);
+      
+      // 如果第一次解析结果还是字符串，进行第二次解析
+      if (typeof firstParse === 'string') {
+        firstParse = JSON.parse(firstParse);
+      }
+      
+      // 确保结果是数组
+      if (Array.isArray(firstParse)) {
+        return firstParse;
+      } else if (typeof firstParse === 'object' && firstParse !== null) {
+        // 如果是对象，转换为数组格式
+        return [firstParse];
+      } else if (typeof firstParse === 'string') {
+        // 如果最终还是字符串，创建简单的定义对象
+        return [{ meaning: firstParse, pos: '' }];
+      }
+    } catch (error) {
+      console.warn('Failed to parse definitions, treating as plain text:', definitionsString);
+      // 解析失败，将原始字符串作为定义
+      return [{ meaning: definitionsString, pos: '' }];
+    }
+    
+    return [];
   }
 
   // 计算单词的连续正确次数
@@ -427,43 +464,27 @@ class ReviewService {
       );
     });
 
-    // 安全地解析 definitions，确保总是返回数组
-    const parsed = this._safeJsonParse(vocab.definitions, vocab.definitions);
-    let targetDefs;
-    if (typeof parsed === 'string') {
-      targetDefs = [{ meaning: parsed, pos: '' }];
-    } else if (Array.isArray(parsed)) {
-      targetDefs = parsed;
-    } else {
-      targetDefs = [{ meaning: vocab.definitions, pos: '' }];
-    }
+    // 使用专门的方法解析双重编码的 definitions
+    const targetDefs = this._parseDefinitions(vocab.definitions);
     
     console.log("Final targetDefs:", targetDefs);
     console.log("Is targetDefs array:", Array.isArray(targetDefs));
 
     const options = otherWords.map(w => {
-      const parsed = this._safeJsonParse(w.definitions, w.definitions);
-      let otherDefs;
-      if (typeof parsed === 'string') {
-        otherDefs = [{ meaning: parsed, pos: '' }];
-      } else if (Array.isArray(parsed)) {
-        otherDefs = parsed;
-      } else {
-        otherDefs = [{ meaning: w.definitions, pos: '' }];
-      }
+      const otherDefs = this._parseDefinitions(w.definitions);
       
       return {
         word: w.word,
-        definition: otherDefs[0].meaning,
-        pos: otherDefs[0].pos || ''
+        definition: otherDefs[0]?.meaning || 'No definition available',
+        pos: otherDefs[0]?.pos || ''
       };
     });
 
     // 添加正确答案
     options.push({
       word: vocab.word,
-      definition: targetDefs[0].meaning,
-      pos: targetDefs[0].pos || ''
+      definition: targetDefs[0]?.meaning || 'No definition available',
+      pos: targetDefs[0]?.pos || ''
     });
 
     // 打乱选项顺序
@@ -506,7 +527,7 @@ class ReviewService {
       definitions: targetDefs, // 确保这里总是返回数组
       examples: this._safeJsonParse(vocab.examples, []),
       memory_method: vocab.memory_method || '',
-      correct_answer: targetDefs[0].meaning,
+      correct_answer: targetDefs[0]?.meaning || 'No definition available',
       options: shuffledOptions.map(opt => ({
         definition: opt.definition,
         pos: opt.pos
@@ -698,7 +719,7 @@ class ReviewService {
 
             const words = rows.map(row => ({
               ...row,
-              definitions: this._safeJsonParse(row.definitions, []),
+              definitions: this._parseDefinitions(row.definitions),
               pronunciation: this._safeJsonParse(row.pronunciation, {}),
               examples: this._safeJsonParse(row.examples, []),
               last_review_date: row.last_review_date,
@@ -805,6 +826,105 @@ class ReviewService {
     } catch (error) {
       throw error;
     }
+  }
+
+  // 获取特定单词的学习记录
+  async getWordLearningHistory(word, userId = null) {
+    return new Promise((resolve, reject) => {
+      const userClause = this._buildUserClause(userId);
+      const params = [word, ...this._getUserParams(userId)];
+      
+      const sql = `
+        SELECT 
+          review_date,
+          review_result
+        FROM learning_records
+        WHERE word = ? AND ${userClause}
+        ORDER BY review_date DESC
+      `;
+      
+      console.log("getWordLearningHistory-sql", sql);
+      console.log("getWordLearningHistory-params", params);
+      
+      db.all(sql, params, (err, rows) => {
+        if (err) {
+          console.error("getWordLearningHistory error:", err);
+          reject(err);
+        } else {
+          console.log("getWordLearningHistory rows:", rows?.length);
+          
+          // 格式化返回数据
+          const history = rows.map(row => ({
+            review_date: dayjs(row.review_date).tz().format('YYYY-MM-DD HH:mm:ss'),
+            review_result: row.review_result
+          }));
+          
+          resolve(history);
+        }
+      });
+    });
+  }
+
+  // 获取用户贡献图信息（最近半年的学习情况）
+  async getUserContribution(userId = null) {
+    return new Promise((resolve, reject) => {
+      // 计算最近半年的日期范围
+      const endDate = dayjs().tz().format('YYYY-MM-DD');
+      const startDate = dayjs().tz().subtract(180, 'days').format('YYYY-MM-DD');
+      
+      const userClause = this._buildUserClause(userId);
+      const params = [startDate, endDate, ...this._getUserParams(userId)];
+      
+      const sql = `
+        SELECT 
+          date,
+          total_words,
+          completed,
+          correct
+        FROM learning_progress
+        WHERE date BETWEEN ? AND ? AND ${userClause}
+        ORDER BY date ASC
+      `;
+      
+      console.log("getUserContribution-sql", sql);
+      console.log("getUserContribution-params", params);
+      console.log("Date range:", startDate, "to", endDate);
+      
+      db.all(sql, params, (err, rows) => {
+        if (err) {
+          console.error("getUserContribution error:", err);
+          reject(err);
+        } else {
+          console.log("getUserContribution rows:", rows?.length);
+          
+          // 创建完整的日期序列，填充缺失的日期
+          const contribution = [];
+          const start = dayjs(startDate);
+          const end = dayjs(endDate);
+          
+          // 将数据库结果转换为 Map 以便快速查找
+          const dataMap = new Map();
+          rows.forEach(row => {
+            dataMap.set(row.date, row);
+          });
+          
+          // 生成最近180天的完整数据
+          for (let date = start; date.isBefore(end) || date.isSame(end); date = date.add(1, 'day')) {
+            const dateStr = date.format('YYYY-MM-DD');
+            const record = dataMap.get(dateStr);
+            
+            contribution.push({
+              date: dateStr,
+              total_words: record ? record.total_words : 0,
+              completed: record ? record.completed : 0,
+              correct: record ? record.correct : 0
+            });
+          }
+          
+          resolve(contribution);
+        }
+      });
+    });
   }
 }
 

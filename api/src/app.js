@@ -70,6 +70,8 @@ const start = async () => {
             'Vocabulary management',
             'Spaced repetition learning system',
             'Learning progress tracking',
+            'Individual word learning history tracking',
+            'User contribution graph (GitHub-style learning heatmap)',
             'LLM integration for enhanced learning',
             'JWT + Refresh Token authentication',
             'Legacy mode for backward compatibility'
