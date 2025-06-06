@@ -10,7 +10,7 @@ const learningConfig = {
   reviewDays: [1, 2, 4, 7, 15, 30],
   
   // 词汇掌握标准（连续正确次数）
-  masteryThreshold: 5
+  masteryThreshold: 6
 };
 
 module.exports = learningConfig;

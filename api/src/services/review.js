@@ -883,7 +883,7 @@ class ReviewService {
           correct
         FROM learning_progress
         WHERE date BETWEEN ? AND ? AND ${userClause}
-        ORDER BY date ASC
+        ORDER BY date DESC
       `;
       
       console.log("getUserContribution-sql", sql);
