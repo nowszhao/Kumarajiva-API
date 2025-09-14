@@ -4,7 +4,7 @@ module.exports = {
     cookie: {
       secure: process.env.NODE_ENV === 'production', // HTTPS only in production
       httpOnly: true,
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      maxAge: 30 * 24 * 60 * 60 * 1000*10000, // 30 days
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 跨域支持
       domain: process.env.COOKIE_DOMAIN || undefined, // 允许配置cookie域名
     },
